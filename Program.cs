@@ -29,10 +29,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // CORS — permite o React acessar a API
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("ReactApp", policy =>
-        policy.WithOrigins("http://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod());
+    options.AddPolicy("PermitirTudo", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
 });
 
 // Registra o Service — quando alguém pedir IAuthService, entrega AuthService
@@ -62,7 +64,7 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseCors("ReactApp");
+app.UseCors("PermitirTudo");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
