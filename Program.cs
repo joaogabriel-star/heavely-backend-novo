@@ -5,14 +5,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
-// Banco de dados
+// 1. Banco de dados
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// JWT
+// 2. JWT
 var jwtKey = builder.Configuration["Jwt:Key"]!;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -26,7 +27,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// CORS — permite o React acessar a API
+// 3. CORS — permite o React acessar a API
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("PermitirTudo", policy =>
@@ -37,21 +38,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Registra o Service — quando alguém pedir IAuthService, entrega AuthService
-builder.Services.AddScoped<IAuthService, AuthService>();
-
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IEventoService, EventoService>(); 
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IEventoService, EventoService>();
-builder.Services.AddScoped<IAlocacaoService, AlocacaoService>(); 
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IEventoService, EventoService>();
-builder.Services.AddScoped<IAlocacaoService, AlocacaoService>();
-builder.Services.AddScoped<IUsuarioService, UsuarioService>(); 
+// 4. Registra os Services (Limpo e sem repetições!)
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEventoService, EventoService>();
 builder.Services.AddScoped<IAlocacaoService, AlocacaoService>();
@@ -59,8 +46,14 @@ builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IRelatorioService, RelatorioService>();
 builder.Services.AddScoped<IPontoService, PontoService>();
 
+// 5. Configurações padrão da API
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
 
+// 6. Pipeline de execução
 app.UseSwagger();
 app.UseSwaggerUI();
 
