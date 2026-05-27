@@ -1,0 +1,205 @@
+namespace SistemaHEAVELYBackend.Services;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using SistemaHEAVELYBackend.DTOs.Usuarios; // Ajuste se a sua pasta de DTOs for diferente
+using SistemaHEAVELYBackend.Models;
+using SistemaHEAVELYBackend.Services.Interfaces;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+
+public class AuthService : IAuthService
+{
+    private readonly AppDbContext _context;
+    private readonly IConfiguration _configuration;
+
+    public AuthService(AppDbContext context, IConfiguration configuration)
+    {
+        _context = context;
+        _configuration = configuration;
+    }
+
+    public async Task<AuthRespostaDTO> CadastrarLedorFiscalAsync(CadastroLedorFiscalDTO dto)
+    {
+        // Verifica se CPF, email ou celular já existem no banco
+        var jaExiste = await _context.Usuarios.AnyAsync(u =>
+            u.Cpf == dto.Cpf ||
+            u.Email == dto.Email ||
+            u.Celular == dto.Celular);
+
+        if (jaExiste)
+            throw new Exception("CPF, email ou celular já cadastrado.");
+
+        // Verifica idade mínima de 18 anos
+        var hoje = DateTime.Today;
+        var idade = hoje.Year - dto.DataNascimento.Year;
+        if (dto.DataNascimento.Date > hoje.AddYears(-idade)) idade--;
+        if (idade < 18)
+            throw new Exception("É necessário ter pelo menos 18 anos.");
+
+        // Regra central: tem certificado = Ledor (1), não tem = Fiscal (2)
+        var idPerfil = dto.PossuiCertificadoLedor ? 1 : 2;
+
+        // Nunca salva senha em texto puro — sempre criptografada
+        var senhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha);
+
+        var usuario = new Usuario
+        {
+            IdPerfil = idPerfil,
+            NomeCompleto = dto.NomeCompleto,
+            Cpf = dto.Cpf,
+            Celular = dto.Celular,
+            Email = dto.Email,
+            SenhaHash = senhaHash,
+            Endereco = dto.Endereco,
+            DataNascimento = DateOnly.FromDateTime(dto.DataNascimento),
+            StatusConta = "pendente", 
+            CreatedAt = DateTime.Now
+        };
+
+        _context.Usuarios.Add(usuario);
+        await _context.SaveChangesAsync();
+
+        // Cria os dados acadêmicos vinculados ao usuário recém-criado
+        var dadosAcademicos = new DadosAcademico
+        {
+            IdUsuario = usuario.IdUsuario,
+            EscolaridadeNivel = dto.EscolaridadeNivel,
+            EscolaridadeStatus = dto.EscolaridadeStatus,
+            CursoFormacao = dto.InstituicaoEnsino, 
+            MateriasFacilidade = dto.MateriasFacilidade,
+            NivelIngles = dto.NivelIngles,
+            NivelEspanhol = dto.NivelEspanhol,
+            ExperienciaProfissional = dto.ExperienciaProfissional
+        };
+
+        _context.DadosAcademicos.Add(dadosAcademicos);
+        await _context.SaveChangesAsync();
+
+        var nomePerfil = dto.PossuiCertificadoLedor ? "Ledor" : "Fiscal";
+
+        return new AuthRespostaDTO
+        {
+            IdUsuario = usuario.IdUsuario,
+            NomeCompleto = usuario.NomeCompleto,
+            Email = usuario.Email,
+            Perfil = nomePerfil,
+            StatusConta = usuario.StatusConta,
+            Token = string.Empty // 👈 NINGUÉM ENTRA SEM APROVAÇÃO DO COORDENADOR!
+        };
+    }
+
+    public async Task<AuthRespostaDTO> CadastrarAdminAsync(CadastroAdminDTO dto)
+    {
+        var jaExiste = await _context.Usuarios.AnyAsync(u =>
+            u.Cpf == dto.Cpf ||
+            u.Email == dto.Email);
+
+        if (jaExiste)
+            throw new Exception("CPF ou email já cadastrado.");
+
+        var senhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha);
+
+        var usuario = new Usuario
+        {
+            IdPerfil = 3, // Admin
+            NomeCompleto = dto.NomeCompleto,
+            Cpf = dto.Cpf,
+            Celular = dto.Celular,
+            Email = dto.Email,
+            SenhaHash = senhaHash,
+            DataNascimento = DateOnly.FromDateTime(dto.DataNascimento),
+            StatusConta = "pendente", // Fica pendente até aprovação
+            CreatedAt = DateTime.Now
+        };
+
+        _context.Usuarios.Add(usuario);
+        await _context.SaveChangesAsync();
+
+        var dadosAdmin = new DadosAdministrativo
+        {
+            IdUsuario = usuario.IdUsuario,
+            CargoInstituicao = dto.CargoInstituicao,
+            EmailInstitucional = dto.EmailInstitucional,
+            StatusAprovacao = "pendente"
+        };
+
+        _context.DadosAdministrativos.Add(dadosAdmin);
+        await _context.SaveChangesAsync();
+
+        // Admin pendente não recebe token ainda
+        return new AuthRespostaDTO
+        {
+            IdUsuario = usuario.IdUsuario,
+            NomeCompleto = usuario.NomeCompleto,
+            Email = usuario.Email,
+            Perfil = "Admin",
+            StatusConta = "pendente",
+            Token = string.Empty
+        };
+    }
+
+    public async Task<AuthRespostaDTO> LoginAsync(LoginDTO dto)
+    {
+        // Busca o usuário pelo email já trazendo o Perfil (JOIN automático)
+        var usuario = await _context.Usuarios
+            .Include(u => u.IdPerfilNavigation)
+            .FirstOrDefaultAsync(u => u.Email == dto.Email);
+
+        // Mensagem genérica — não revela se é email ou senha que está errado
+        if (usuario == null)
+            throw new Exception("Email ou senha inválidos.");
+
+        var senhaCorreta = BCrypt.Net.BCrypt.Verify(dto.Senha, usuario.SenhaHash);
+        if (!senhaCorreta)
+            throw new Exception("Email ou senha inválidos.");
+
+        // Bloqueia contas pendentes ou inativas
+        if (usuario.StatusConta != "ativo")
+            throw new Exception($"Conta com status '{usuario.StatusConta}'. Aguarde aprovação ou contate a coordenação.");
+
+        var nomePerfil = usuario.IdPerfilNavigation.NomePerfil;
+        var token = GerarToken(usuario, nomePerfil);
+
+        return new AuthRespostaDTO
+        {
+            IdUsuario = usuario.IdUsuario,
+            NomeCompleto = usuario.NomeCompleto,
+            Email = usuario.Email,
+            Perfil = nomePerfil,
+            StatusConta = usuario.StatusConta,
+            Token = token
+        };
+    }
+
+    // Método privado — só usado internamente pelo Service
+    private string GerarToken(Usuario usuario, string nomePerfil)
+    {
+        // Claims são as informações gravadas dentro do token
+        // O frontend consegue ler sem consultar o banco
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, usuario.IdUsuario.ToString()),
+            new Claim(ClaimTypes.Email, usuario.Email),
+            new Claim(ClaimTypes.Role, nomePerfil),
+            new Claim(ClaimTypes.Name, usuario.NomeCompleto)
+        };
+
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var expiracao = int.Parse(_configuration["Jwt:ExpiracaoHoras"]!);
+
+        var token = new JwtSecurityToken(
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(expiracao),
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}
