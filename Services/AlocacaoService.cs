@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-
 public class AlocacaoService : IAlocacaoService
 {
     private readonly AppDbContext _context;
@@ -116,6 +115,7 @@ public class AlocacaoService : IAlocacaoService
         return MontarResposta(alocacao, evento.TituloProva, usuario.NomeCompleto);
     }
 
+    // ── CANCELAMENTO PELO CANDIDATO (Mantém histórico como Cancelado) ──────
     public async Task CancelarInscricaoAsync(int idEvento, int idUsuario)
     {
         var alocacao = await _context.Alocacoes
@@ -130,49 +130,71 @@ public class AlocacaoService : IAlocacaoService
         var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
         var papelCancelado = alocacao.PapelEvento;
 
-        _context.Alocacoes.Remove(alocacao);
+        // Atualiza para cancelado em vez de remover do banco
         alocacao.StatusParticipacao = "Cancelado";
+        alocacao.PosicaoReserva = null;
         await _context.SaveChangesAsync();
 
         // ── Lógica de reserva ─────────────────────────────────────────────────
         // Se era confirmado, sobe o primeiro da fila de reserva
         if (eraConfirmado)
         {
-            var proximoDaReserva = await _context.Alocacoes
-                .Where(a => a.IdEvento == idEvento &&
-                            a.PapelEvento == papelCancelado &&
-                            a.StatusParticipacao == "Reserva")
-                .OrderBy(a => a.PosicaoReserva) // pega o 1º da fila
-                .FirstOrDefaultAsync();
-
-            if (proximoDaReserva != null)
-            {
-                proximoDaReserva.StatusParticipacao = "Confirmado";
-                proximoDaReserva.PosicaoReserva = null; // saiu da reserva
-
-                // Reordena a fila — todos descem uma posição
-                var restantesNaReserva = await _context.Alocacoes
-                    .Where(a => a.IdEvento == idEvento &&
-                                a.PapelEvento == papelCancelado &&
-                                a.StatusParticipacao == "Reserva")
-                    .OrderBy(a => a.PosicaoReserva)
-                    .ToListAsync();
-
-                for (int i = 0; i < restantesNaReserva.Count; i++)
-                    restantesNaReserva[i].PosicaoReserva = i + 1;
-
-                await _context.SaveChangesAsync();
-            }
+            await PromoverProximoDaReserva(idEvento, papelCancelado);
         }
-        
     }
 
+    // ── CANCELAMENTO PELO COORDENADOR (Apaga do banco e puxa a fila) ──────
     public async Task CancelarInscricaoAsync(int idAlocacao)
     {
         var alocacao = await _context.Alocacoes.FindAsync(idAlocacao);
+        
         if (alocacao != null)
         {
+            var idEvento = alocacao.IdEvento;
+            var papelCancelado = alocacao.PapelEvento;
+            var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
+
+            // Remove a inscrição definitivamente
             _context.Alocacoes.Remove(alocacao);
+            await _context.SaveChangesAsync();
+
+            // Se a pessoa removida estava ocupando uma vaga, sobe o primeiro da fila!
+            if (eraConfirmado)
+            {
+                await PromoverProximoDaReserva(idEvento, papelCancelado);
+            }
+        }
+    }
+
+    // ── MÉTODO REUTILIZÁVEL PARA PUXAR A FILA ─────────────────────────────
+    private async Task PromoverProximoDaReserva(int idEvento, string papelEvento)
+    {
+        var proximoDaReserva = await _context.Alocacoes
+            .Where(a => a.IdEvento == idEvento &&
+                        a.PapelEvento == papelEvento &&
+                        a.StatusParticipacao == "Reserva")
+            .OrderBy(a => a.PosicaoReserva) // Pega o 1º da fila
+            .FirstOrDefaultAsync();
+
+        if (proximoDaReserva != null)
+        {
+            // Promove o reserva para Confirmado
+            proximoDaReserva.StatusParticipacao = "Confirmado";
+            proximoDaReserva.PosicaoReserva = null; // Saiu da reserva
+
+            // Reordena a fila — todos descem uma posição
+            var restantesNaReserva = await _context.Alocacoes
+                .Where(a => a.IdEvento == idEvento &&
+                            a.PapelEvento == papelEvento &&
+                            a.StatusParticipacao == "Reserva")
+                .OrderBy(a => a.PosicaoReserva)
+                .ToListAsync();
+
+            for (int i = 0; i < restantesNaReserva.Count; i++)
+            {
+                restantesNaReserva[i].PosicaoReserva = i + 1;
+            }
+
             await _context.SaveChangesAsync();
         }
     }
@@ -225,31 +247,31 @@ public class AlocacaoService : IAlocacaoService
     }
 
     public async Task<List<ListaInscritosDTO>> ListarInscritosAsync(int idEvento)
-{
-    return await _context.Alocacoes
-        .Include(a => a.IdUsuarioNavigation)
-        .Where(a => a.IdEvento == idEvento)
-        .Select(a => new ListaInscritosDTO
-        {
-            IdAlocacao         = a.IdAlocacao,
-            NomeUsuario       = a.IdUsuarioNavigation!.NomeCompleto,
-            Email              = a.IdUsuarioNavigation.Email,
-            PapelEvento        = a.PapelEvento,
-            StatusParticipacao = a.StatusParticipacao,
-            PosicaoReserva     = a.PosicaoReserva,
-            CheckInTime        = a.CheckInTime,
-            CheckOutTime       = a.CheckOutTime,
-            HorasTrabalhadas   = a.HorasTrabalhadas,
-        })
-        .ToListAsync();
-}
+    {
+        return await _context.Alocacoes
+            .Include(a => a.IdUsuarioNavigation)
+            .Where(a => a.IdEvento == idEvento)
+            .Select(a => new ListaInscritosDTO
+            {
+                IdAlocacao         = a.IdAlocacao,
+                NomeUsuario        = a.IdUsuarioNavigation!.NomeCompleto,
+                Email              = a.IdUsuarioNavigation.Email,
+                PapelEvento        = a.PapelEvento,
+                StatusParticipacao = a.StatusParticipacao,
+                PosicaoReserva     = a.PosicaoReserva,
+                CheckInTime        = a.CheckInTime,
+                CheckOutTime       = a.CheckOutTime,
+                HorasTrabalhadas   = a.HorasTrabalhadas,
+            })
+            .ToListAsync();
+    }
 
     public async Task<List<AlocacaoRespostaDTO>> ListarMinhasInscricoesAsync(int idUsuario)
     {
         var inscricoes = await _context.Alocacoes
             .Include(a => a.IdEventoNavigation) // Inclui o Evento para ler as Observacoes
             .Where(a => a.IdUsuario == idUsuario &&
-                        a.StatusParticipacao != "Cancelado") // 🚀 Oculta as canceladas da tela do candidato
+                        a.StatusParticipacao != "Cancelado") // Oculta as canceladas da tela do candidato
             .OrderByDescending(a => a.IdEventoNavigation.DataProva)
             .ToListAsync();
 
@@ -267,10 +289,10 @@ public class AlocacaoService : IAlocacaoService
         if (!checkIn.HasValue || !checkOut.HasValue)
             return null;
 
-            var inicioRealCalculo = checkIn.Value > dataOficialProva ? dataOficialProva : checkIn.Value;
+        var inicioRealCalculo = checkIn.Value > dataOficialProva ? dataOficialProva : checkIn.Value;
 
-            if (checkOut.Value < inicioRealCalculo)
-                return 0;
+        if (checkOut.Value < inicioRealCalculo)
+            return 0;
 
         return Math.Round((checkOut.Value - inicioRealCalculo).TotalHours, 2);
     }
