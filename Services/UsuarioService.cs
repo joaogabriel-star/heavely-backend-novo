@@ -206,7 +206,22 @@ public async Task<bool> AlterarPerfilMembroAsync(int idUsuario, string novoPerfi
     await _context.SaveChangesAsync();
     return true;
 }
+public async Task DeletarUsuarioAsync(int idUsuario)
+{
+    // 1. Procura o utilizador no banco
+    var usuario = await _context.Usuarios.FindAsync(idUsuario);
+    
+    if (usuario == null)
+    {
+        throw new Exception("Usuário não encontrado no banco de dados.");
+    }
 
+    // 2. Apaga o utilizador
+    _context.Usuarios.Remove(usuario);
+    
+    // 3. Salva as alterações no banco
+    await _context.SaveChangesAsync();
+}
     
 
     // ─── Métodos privados ─────────────────────────────────────────────────────

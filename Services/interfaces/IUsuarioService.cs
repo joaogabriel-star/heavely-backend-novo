@@ -22,7 +22,7 @@ public interface IUsuarioService
     // Admin aprova ou rejeita um coordenador
     Task AprovarAdminAsync(int idAdminAprovador, int idAdminAlvo, bool aprovar);
 
-    Task DeletarUsuarioAsync(int idAdminAprovador);
+    Task DeletarUsuarioAsync(int idUsuario);
 
     // Admin ativa ou inativa qualquer usuário
     Task AlterarStatusContaAsync(int idUsuario, string novoStatus);
