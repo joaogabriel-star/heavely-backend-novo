@@ -208,18 +208,35 @@ public async Task<bool> AlterarPerfilMembroAsync(int idUsuario, string novoPerfi
 }
 public async Task DeletarUsuarioAsync(int idUsuario)
 {
-    // 1. Procura o utilizador no banco
+    // 1. Procura e remove as alocações (inscrições em provas) do utilizador
+    var alocacoes = await _context.Alocacoes.Where(a => a.IdUsuario == idUsuario).ToListAsync();
+    if (alocacoes.Any())
+    {
+        _context.Alocacoes.RemoveRange(alocacoes);
+    }
+
+    // 2. Procura e remove os Dados Académicos do utilizador
+    // Nota: Certifique-se de que o nome da tabela no seu _context é exatamente "DadosAcademicos"
+    var dadosAcademicos = await _context.DadosAcademicos.Where(d => d.IdUsuario == idUsuario).ToListAsync();
+    if (dadosAcademicos.Any())
+    {
+        _context.DadosAcademicos.RemoveRange(dadosAcademicos);
+    }
+
+    // 3. Se o sistema tiver tabelas de "DadosBancarios" ou "DadosAdministrativos", 
+    // adicione o mesmo bloco para elas aqui antes de apagar o utilizador.
+
+    // 4. Agora que os "filhos" foram limpos, procuramos o utilizador ("pai")
     var usuario = await _context.Usuarios.FindAsync(idUsuario);
-    
     if (usuario == null)
     {
         throw new Exception("Usuário não encontrado no banco de dados.");
     }
 
-    // 2. Apaga o utilizador
+    // 5. Remove o utilizador do sistema
     _context.Usuarios.Remove(usuario);
     
-    // 3. Salva as alterações no banco
+    // 6. Salva todas as alterações de uma vez só no banco de dados
     await _context.SaveChangesAsync();
 }
     
