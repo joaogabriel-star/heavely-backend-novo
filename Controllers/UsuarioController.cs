@@ -139,6 +139,22 @@ public class UsuarioController : ControllerBase
         }
     }
 
+    [HttpDelete("{id}/recusar")]
+public async Task<IActionResult> RecusarUsuario(int id)
+{
+    try
+    {
+        // Chama a função de apagar que já deve existir no seu Service
+        await _usuarioService.DeletarUsuarioAsync(id); // (Pode ser que o nome da sua função seja diferente, como RemoverUsuarioAsync)
+        
+        return Ok(new { mensagem = "Usuário recusado com sucesso!" });
+    }
+    catch (Exception ex)
+    {
+        return BadRequest(new { mensagem = "Erro ao recusar usuário: " + ex.Message });
+    }
+}
+
     // PUT /api/usuarios/{id}/status — ativa ou inativa usuário (só Admin)
     [HttpPut("{id}/status")]
     public async Task<IActionResult> AlterarStatus(int id, [FromQuery] string status)
