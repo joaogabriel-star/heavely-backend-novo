@@ -88,38 +88,58 @@ public class EventoService : IEventoService
         );
     }
 
-    public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, AtualizarEventoDTO dto)
+public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, AtualizarEventoDTO dto)
+{
+    var evento = await _context.EventosProvas 
+        .Include(e => e.IdCriadorAdminNavigation)
+        .Include(e => e.Alocacos) 
+        .FirstOrDefaultAsync(e => e.IdEvento == idEvento);
+
+    if (evento == null)
+        throw new Exception("Evento não encontrado.");
+
+    if (evento.StatusEvento == "CANCELADO")
+        throw new Exception("Não é possível editar um evento cancelado.");
+
+    if (dto.TituloProva != null) evento.TituloProva = dto.TituloProva;
+    if (dto.LocalProva != null) evento.LocalProva = dto.LocalProva;
+
+    // ─── NEUTRALIZAÇÃO DO FUSO HORÁRIO DA RAILWAY ───────────────────
+    // Identifica o fuso correto do Brasil (compatível com Windows local e Linux da Railway)
+    var fusoBrasil = TimeZoneInfo.FindSystemTimeZoneById(
+        Environment.OSVersion.Platform == PlatformID.Unix ? "America/Sao_Paulo" : "E. South America Standard Time");
+
+    if (dto.DataProva.HasValue) 
     {
-        var evento = await _context.EventosProvas   // ← corrigido
-            .Include(e => e.IdCriadorAdminNavigation)
-            .Include(e => e.Alocacos)               // ← corrigido
-            .FirstOrDefaultAsync(e => e.IdEvento == idEvento);
-
-        if (evento == null)
-            throw new Exception("Evento não encontrado.");
-
-        if (evento.StatusEvento == "CANCELADO")
-            throw new Exception("Não é possível editar um evento cancelado.");
-
-        if (dto.TituloProva != null) evento.TituloProva = dto.TituloProva;
-        if (dto.LocalProva != null) evento.LocalProva = dto.LocalProva;
-        if (dto.DataProva.HasValue) evento.DataProva = dto.DataProva.Value;
-        if (dto.HorarioFim.HasValue) evento.HorarioFim = dto.HorarioFim.Value;
-        if (dto.VagasLedor.HasValue) evento.VagasLedor = dto.VagasLedor.Value;
-        if (dto.VagasFiscal.HasValue) evento.VagasFiscal = dto.VagasFiscal.Value;
-
-        if (evento.HorarioFim <= evento.DataProva)
-            throw new Exception("O horário de fim deve ser posterior ao horário de início.");
-
-        await _context.SaveChangesAsync();
-
-        return MontarResposta(
-            evento,
-            evento.IdCriadorAdminNavigation.NomeCompleto,
-            ContarVagasOcupadas(evento, "Ledor"),
-            ContarVagasOcupadas(evento, "Fiscal")
-        );
+        // Pega o horário vindo do formulário e desvincula de qualquer fuso implícito
+        var dataSemFuso = DateTime.SpecifyKind(dto.DataProva.Value, DateTimeKind.Unspecified);
+        // Converte para UTC considerando que a origem é o fuso de Brasília
+        evento.DataProva = TimeZoneInfo.ConvertTimeToUtc(dataSemFuso, fusoBrasil);
     }
+
+    if (dto.HorarioFim.HasValue)
+    {
+        // Faz o mesmo tratamento para o horário de término da prova
+        var fimSemFuso = DateTime.SpecifyKind(dto.HorarioFim.Value, DateTimeKind.Unspecified);
+        evento.HorarioFim = TimeZoneInfo.ConvertTimeToUtc(fimSemFuso, fusoBrasil);
+    }
+    // ────────────────────────────────────────────────────────────────
+
+    if (dto.VagasLedor.HasValue) evento.VagasLedor = dto.VagasLedor.Value;
+    if (dto.VagasFiscal.HasValue) evento.VagasFiscal = dto.VagasFiscal.Value;
+
+    if (evento.HorarioFim <= evento.DataProva)
+        throw new Exception("O horário de fim deve ser posterior ao horário de início.");
+
+    await _context.SaveChangesAsync();
+
+    return MontarResposta(
+        evento,
+        evento.IdCriadorAdminNavigation.NomeCompleto,
+        ContarVagasOcupadas(evento, "Ledor"),
+        ContarVagasOcupadas(evento, "Fiscal")
+    );
+}
 
     public async Task CancelarEventoAsync(int idEvento)
     {
