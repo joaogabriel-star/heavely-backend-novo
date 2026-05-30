@@ -144,27 +144,41 @@ public class AlocacaoService : IAlocacaoService
     }
 
     // ── CANCELAMENTO PELO COORDENADOR (Apaga do banco e puxa a fila) ──────
-    public async Task CancelarInscricaoAsync(int idAlocacao)
+   // ── CANCELAMENTO PELO COORDENADOR (Apaga do banco e trata a vaga livre) ──────
+public async Task CancelarInscricaoAsync(int idAlocacao)
+{
+    var alocacao = await _context.Alocacoes.FindAsync(idAlocacao);
+    
+    if (alocacao != null)
     {
-        var alocacao = await _context.Alocacoes.FindAsync(idAlocacao);
-        
-        if (alocacao != null)
+        var idEvento = alocacao.IdEvento;
+        var papelCancelado = alocacao.PapelEvento;
+        var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
+
+        // 1. Remove a inscrição definitivamente (Isto já liberta a vaga no cálculo dinâmico!)
+        _context.Alocacoes.Remove(alocacao);
+        await _context.SaveChangesAsync();
+
+        // 2. Verifica se precisamos de puxar alguém da fila para ocupar a vaga que acabou de abrir
+        if (eraConfirmado)
         {
-            var idEvento = alocacao.IdEvento;
-            var papelCancelado = alocacao.PapelEvento;
-            var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
+            var proximoDaReserva = await _context.Alocacoes
+                .Where(a => a.IdEvento == idEvento && 
+                            a.PapelEvento == papelCancelado && 
+                            a.StatusParticipacao == "Na Reserva")
+                .OrderBy(a => a.IdAlocacao) // Garante que pega o primeiro que entrou na fila
+                .FirstOrDefaultAsync();
 
-            // Remove a inscrição definitivamente
-            _context.Alocacoes.Remove(alocacao);
-            await _context.SaveChangesAsync();
-
-            // Se a pessoa removida estava ocupando uma vaga, sobe o primeiro da fila!
-            if (eraConfirmado)
+            if (proximoDaReserva != null)
             {
-                await PromoverProximoDaReserva(idEvento, papelCancelado);
+                // Promovemos a pessoa da reserva
+                proximoDaReserva.StatusParticipacao = "Confirmado";
+                await _context.SaveChangesAsync();
             }
+            // Se a fila estiver vazia, não fazemos nada. A vaga já está livre porque a alocação anterior foi apagada!
         }
     }
+}
 
     // ── MÉTODO REUTILIZÁVEL PARA PUXAR A FILA ─────────────────────────────
     private async Task PromoverProximoDaReserva(int idEvento, string papelEvento)

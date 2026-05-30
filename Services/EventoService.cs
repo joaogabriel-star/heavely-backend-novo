@@ -162,7 +162,7 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
     {
         return evento.Alocacos           // ← corrigido
             .Count(a => a.PapelEvento == papel &&
-                        a.StatusParticipacao == "Confirmado");
+                        a.StatusParticipacao == "Cancelado");
     }
 
     private EventoRespostaDTO MontarResposta(
