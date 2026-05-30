@@ -144,42 +144,53 @@ public class AlocacaoService : IAlocacaoService
     }
 
     // ── CANCELAMENTO PELO COORDENADOR (Apaga do banco e puxa a fila) ──────
-   // ── CANCELAMENTO PELO COORDENADOR (Apaga do banco e trata a vaga livre) ──────
-public async Task CancelarInscricaoAsync(int idAlocacao)
+public async Task CancelarInscricaoAsync(int idEnviado)
 {
-    var alocacao = await _context.Alocacoes.FindAsync(idAlocacao);
-    
-    if (alocacao != null)
+    // 1. Tenta achar pela Chave Primária normal
+    var alocacao = await _context.Alocacoes.FindAsync(idEnviado);
+
+    // 2. Se não achou, o React provavelmente enviou o IdUsuario por engano.
+    // Vamos corrigir isso automaticamente procurando a alocação deste usuário!
+    if (alocacao == null)
     {
-        var idEvento = alocacao.IdEvento;
-        var papelCancelado = alocacao.PapelEvento;
-        var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
+        alocacao = await _context.Alocacoes.FirstOrDefaultAsync(a => a.IdUsuario == idEnviado);
+    }
 
-        // 1. Remove a inscrição definitivamente (Isto já liberta a vaga no cálculo dinâmico!)
-        _context.Alocacoes.Remove(alocacao);
-        await _context.SaveChangesAsync();
+    // 3. FIM DA FALHA SILENCIOSA: Se não existir de todo, estoura um erro visível!
+    if (alocacao == null)
+    {
+        throw new Exception($"Falha crítica: Nenhuma inscrição encontrada com o ID {idEnviado}.");
+    }
 
-        // 2. Verifica se precisamos de puxar alguém da fila para ocupar a vaga que acabou de abrir
-        if (eraConfirmado)
+    var idEvento = alocacao.IdEvento;
+    var papelCancelado = alocacao.PapelEvento;
+    var eraConfirmado = alocacao.StatusParticipacao == "Confirmado" || alocacao.StatusParticipacao == "Presente";
+
+    // 4. Remove a inscrição DEFINITIVAMENTE do banco
+    _context.Alocacoes.Remove(alocacao);
+    
+    // ATENÇÃO: Como o seu sistema não tem colunas físicas de vagas disponíveis, 
+    // salvar a exclusão aqui já liberta a vaga dinamicamente para os candidatos!
+    await _context.SaveChangesAsync(); 
+
+    // 5. Se a pessoa que saiu estava confirmada, verifica se há alguém na reserva para herdar a vaga
+    if (eraConfirmado)
+    {
+        var proximoDaReserva = await _context.Alocacoes
+            .Where(a => a.IdEvento == idEvento && 
+                        a.PapelEvento == papelCancelado && 
+                        a.StatusParticipacao == "Na Reserva")
+            .OrderBy(a => a.IdAlocacao) // Puxa o mais antigo da fila
+            .FirstOrDefaultAsync();
+
+        if (proximoDaReserva != null)
         {
-            var proximoDaReserva = await _context.Alocacoes
-                .Where(a => a.IdEvento == idEvento && 
-                            a.PapelEvento == papelCancelado && 
-                            a.StatusParticipacao == "Na Reserva")
-                .OrderBy(a => a.IdAlocacao) // Garante que pega o primeiro que entrou na fila
-                .FirstOrDefaultAsync();
-
-            if (proximoDaReserva != null)
-            {
-                // Promovemos a pessoa da reserva
-                proximoDaReserva.StatusParticipacao = "Confirmado";
-                await _context.SaveChangesAsync();
-            }
-            // Se a fila estiver vazia, não fazemos nada. A vaga já está livre porque a alocação anterior foi apagada!
+            // Promove quem estava na reserva
+            proximoDaReserva.StatusParticipacao = "Confirmado";
+            await _context.SaveChangesAsync();
         }
     }
 }
-
     // ── MÉTODO REUTILIZÁVEL PARA PUXAR A FILA ─────────────────────────────
     private async Task PromoverProximoDaReserva(int idEvento, string papelEvento)
     {
