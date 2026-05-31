@@ -44,6 +44,6 @@ public class CadastroLedorFiscalDTO
     public string? NivelEspanhol { get; set; }
     public string? ExperienciaProfissional { get; set; }
     public string? MateriasFacilidade { get; set; }
-    public IFormFile NadaConstaFile { get; set; } = null!; 
+    public IFormFile? NadaConstaFile { get; set; } 
     public IFormFile? DiplomaLedorFile { get; set; } 
 }
