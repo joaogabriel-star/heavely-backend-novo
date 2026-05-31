@@ -186,18 +186,33 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
 
             if (proximo != null)
             {
+                // TEM GENTE NA RESERVA: O próximo ganha a vaga (a barra não mexe)
                 proximo.StatusParticipacao = "Confirmado";
-                await _context.SaveChangesAsync();
             }
+            else
+            {
+                // NÃO TEM NINGUÉM NA RESERVA: Precisamos devolver a vaga para a Prova!
+                var evento = await _context.EventosProvas.FindAsync(idEvento);
+                
+                if (evento != null)
+                {
+                    // Devolve a vaga dependendo da função que o candidato exercia
+                    if (papelCancelado == "Ledor") 
+                    {
+                        evento.VagasLedor++; 
+                    }
+                    else if (papelCancelado == "Fiscal") 
+                    {
+                        evento.VagasFiscal++; 
+                    }
+                }
+            }
+            
+            // Salva as alterações de uma vez só!
+            await _context.SaveChangesAsync();
         }
 
         return Ok(new { mensagem = "Inscrição cancelada com sucesso." });
-    }
-    catch (Exception ex)
-    {
-        return BadRequest(new { mensagem = $"Erro ao cancelar: {ex.Message}" });
-    }
-}
 
     // Classe auxiliar DTO
     public class AtualizarSalaDTO
