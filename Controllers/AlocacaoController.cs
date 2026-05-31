@@ -148,37 +148,46 @@ public class AlocacaoController : ControllerBase
     }
 
     [HttpPut("evento/{idEvento}/cancelar")]
-[Authorize] // Garante que só o candidato logado pode cancelar a si mesmo
+[Authorize]
 public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] CancelarCandidatoDTO dto)
 {
     try
     {
-        // Pega o ID do candidato logado no token do JWT
-        var idUsuario = int.Parse(User.FindFirst("Id")!.Value);
+        // 1. TRAVA DE SEGURANÇA 1: Verifica se os dados (o motivo) chegaram corretamente
+        if (dto == null || string.IsNullOrWhiteSpace(dto.Motivo))
+            return BadRequest(new { mensagem = "O motivo do cancelamento não foi enviado ao servidor." });
 
-        // 1. Encontra a inscrição específica deste candidato neste evento
+        // 2. TRAVA DE SEGURANÇA 2: Busca o ID do usuário de forma inteligente (Maiúsculo, Minúsculo ou Padrão)
+        var claimId = User.FindFirst("Id") ?? User.FindFirst("id") ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        
+        if (claimId == null)
+            return Unauthorized(new { mensagem = "Falha de segurança: Não foi possível identificar o usuário no token." });
+
+        var idUsuario = int.Parse(claimId.Value);
+
+        // 3. Encontra a inscrição do candidato
         var alocacao = await _context.Alocacoes
             .FirstOrDefaultAsync(a => a.IdEvento == idEvento && a.IdUsuario == idUsuario);
 
-        if (alocacao == null) return NotFound("Inscrição não encontrada.");
+        if (alocacao == null) return NotFound(new { mensagem = "Inscrição não encontrada." });
 
         var papelCancelado = alocacao.PapelEvento;
         var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
 
-        // 2. O SEGREDO: Em vez de apagar, mudamos o status e salvamos o motivo!
+        // 4. Executa o Cancelamento Suave (Soft Delete)
         alocacao.StatusParticipacao = "Cancelado";
         alocacao.Observacoes = $"Cancelado pelo candidato. Motivo: {dto.Motivo}";
 
         await _context.SaveChangesAsync();
 
-        // 3. Se ele estava a ocupar uma vaga real, puxamos o próximo da fila de reserva!
+        // 5. Se o candidato estava confirmado, puxa o primeiro da lista de reserva
         if (eraConfirmado)
         {
             var proximoDaReserva = await _context.Alocacoes
                 .Where(a => a.IdEvento == idEvento && 
                             a.PapelEvento == papelCancelado && 
                             a.StatusParticipacao == "Na Reserva")
-                .OrderBy(a => a.IdAlocacao)
+                .OrderBy(a => a.IdAlocacao) // O primeiro que entrou na reserva ganha a vaga
                 .FirstOrDefaultAsync();
 
             if (proximoDaReserva != null)
