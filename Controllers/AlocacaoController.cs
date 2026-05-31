@@ -213,6 +213,12 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         }
 
         return Ok(new { mensagem = "Inscrição cancelada com sucesso." });
+    }
+    catch (Exception ex)
+    {
+        return BadRequest(new { mensagem = $"Erro ao cancelar: {ex.Message}" });
+    }
+}
 
     // Classe auxiliar DTO
     public class AtualizarSalaDTO
