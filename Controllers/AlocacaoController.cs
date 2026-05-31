@@ -177,7 +177,7 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         await _context.SaveChangesAsync();
 
         // 5. Puxa o próximo da reserva
-        if (eraConfirmado)
+       if (eraConfirmado)
         {
             var proximo = await _context.Alocacoes
                 .Where(a => a.IdEvento == idEvento && a.PapelEvento == papelCancelado && a.StatusParticipacao == "Na Reserva")
@@ -186,30 +186,12 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
 
             if (proximo != null)
             {
-                // TEM GENTE NA RESERVA: O próximo ganha a vaga (a barra não mexe)
+                // Se tem reserva, o próximo assume e a vaga volta a ficar ocupada
                 proximo.StatusParticipacao = "Confirmado";
-            }
-            else
-            {
-                // NÃO TEM NINGUÉM NA RESERVA: Precisamos devolver a vaga para a Prova!
-                var evento = await _context.EventosProvas.FindAsync(idEvento);
-                
-                if (evento != null)
-                {
-                    // Devolve a vaga dependendo da função que o candidato exercia
-                    if (papelCancelado == "Ledor") 
-                    {
-                        evento.VagasLedor++; 
-                    }
-                    else if (papelCancelado == "Fiscal") 
-                    {
-                        evento.VagasFiscal++; 
-                    }
-                }
+                await _context.SaveChangesAsync();
             }
             
-            // Salva as alterações de uma vez só!
-            await _context.SaveChangesAsync();
+            // Apagamos o "else" daqui! Não precisamos somar nada na prova.
         }
 
         return Ok(new { mensagem = "Inscrição cancelada com sucesso." });
