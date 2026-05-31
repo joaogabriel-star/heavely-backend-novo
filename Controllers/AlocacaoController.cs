@@ -180,7 +180,7 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
        if (eraConfirmado)
         {
             var proximo = await _context.Alocacoes
-                .Where(a => a.IdEvento == idEvento && a.PapelEvento == papelCancelado && a.StatusParticipacao == "Na Reserva")
+                .Where(a => a.IdEvento == idEvento && a.PapelEvento == papelCancelado && a.StatusParticipacao == "Cancelado")
                 .OrderBy(a => a.IdAlocacao)
                 .FirstOrDefaultAsync();
 
@@ -190,8 +190,23 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
                 proximo.StatusParticipacao = "Confirmado";
                 await _context.SaveChangesAsync();
             }
-            
-            // Apagamos o "else" daqui! Não precisamos somar nada na prova.
+            else
+            {
+                // Devolvemos a vaga para a Prova!
+                var evento = await _context.EventosProvas.FindAsync(idEvento);
+                
+                if (evento != null)
+                {
+                    if (papelCancelado == "Ledor") 
+                    {
+                        evento.VagasLedor++; // ← USE O NOME EXATO DO SEU Evento.cs
+                    }
+                    else if (papelCancelado == "Fiscal") 
+                    {
+                        evento.VagasFiscal++; // ← USE O NOME EXATO DO SEU Evento.cs
+                    }
+                }
+            }
         }
 
         return Ok(new { mensagem = "Inscrição cancelada com sucesso." });
