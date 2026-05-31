@@ -153,46 +153,40 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
 {
     try
     {
-        // 1. TRAVA DE SEGURANÇA 1: Verifica se os dados (o motivo) chegaram corretamente
+        // 1. Verifica se o motivo foi enviado corretamente
         if (dto == null || string.IsNullOrWhiteSpace(dto.Motivo))
             return BadRequest(new { mensagem = "O motivo do cancelamento não foi enviado ao servidor." });
 
-        // 2. TRAVA DE SEGURANÇA 2: Busca o ID do usuário de forma inteligente (Maiúsculo, Minúsculo ou Padrão)
-        var claimId = User.FindFirst("Id") ?? User.FindFirst("id") ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-        
-        if (claimId == null)
-            return Unauthorized(new { mensagem = "Falha de segurança: Não foi possível identificar o usuário no token." });
+        // 2. A MÁGICA: Usando a sua exata forma de buscar o ID!
+        var idUsuario = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        var idUsuario = int.Parse(claimId.Value);
-
-        // 3. Encontra a inscrição do candidato
+        // 3. Busca a inscrição
         var alocacao = await _context.Alocacoes
             .FirstOrDefaultAsync(a => a.IdEvento == idEvento && a.IdUsuario == idUsuario);
 
-        if (alocacao == null) return NotFound(new { mensagem = "Inscrição não encontrada." });
+        if (alocacao == null) 
+            return NotFound(new { mensagem = "Inscrição não encontrada no banco de dados." });
 
         var papelCancelado = alocacao.PapelEvento;
         var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
 
-        // 4. Executa o Cancelamento Suave (Soft Delete)
+        // 4. Cancela e salva o motivo
         alocacao.StatusParticipacao = "Cancelado";
         alocacao.Observacoes = $"Cancelado pelo candidato. Motivo: {dto.Motivo}";
 
         await _context.SaveChangesAsync();
 
-        // 5. Se o candidato estava confirmado, puxa o primeiro da lista de reserva
+        // 5. Puxa o próximo da reserva
         if (eraConfirmado)
         {
-            var proximoDaReserva = await _context.Alocacoes
-                .Where(a => a.IdEvento == idEvento && 
-                            a.PapelEvento == papelCancelado && 
-                            a.StatusParticipacao == "Na Reserva")
-                .OrderBy(a => a.IdAlocacao) // O primeiro que entrou na reserva ganha a vaga
+            var proximo = await _context.Alocacoes
+                .Where(a => a.IdEvento == idEvento && a.PapelEvento == papelCancelado && a.StatusParticipacao == "Na Reserva")
+                .OrderBy(a => a.IdAlocacao)
                 .FirstOrDefaultAsync();
 
-            if (proximoDaReserva != null)
+            if (proximo != null)
             {
-                proximoDaReserva.StatusParticipacao = "Confirmado";
+                proximo.StatusParticipacao = "Confirmado";
                 await _context.SaveChangesAsync();
             }
         }
