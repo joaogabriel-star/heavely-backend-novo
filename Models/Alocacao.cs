@@ -46,7 +46,7 @@ public partial class Alocaco
 
      [Column("sala_designada")]
     public string? SalaDesignada { get; set; }
-
+    [Column ("observacoes")]
     public string? Observacoes { get; set; }
 
     [ForeignKey("IdEvento")]
