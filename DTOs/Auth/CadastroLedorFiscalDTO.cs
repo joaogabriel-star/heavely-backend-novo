@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Http;
 
 namespace SistemaHEAVELYBackend.DTOs.Auth;
@@ -43,8 +44,6 @@ public class CadastroLedorFiscalDTO
     public string? NivelEspanhol { get; set; }
     public string? ExperienciaProfissional { get; set; }
     public string? MateriasFacilidade { get; set; }
-    
-    [Required(ErrorMessage = "Nada consta é obrigatório")]
     public IFormFile NadaConstaFile { get; set; } = null!; 
     public IFormFile? DiplomaLedorFile { get; set; } 
 }

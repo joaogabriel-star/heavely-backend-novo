@@ -33,6 +33,12 @@ public class UsuarioController : ControllerBase
         }
     }
 
+    [HttpGet("health")]
+    public IActionResult GetHealth()
+    {
+    return Ok(new { status = "Online", timestamp = DateTime.UtcNow });
+    }
+
     // PUT /api/usuarios/perfil — usuário atualiza os próprios dados
     [HttpPut("perfil")]
     public async Task<IActionResult> AtualizarPerfil([FromBody] AtualizarPerfilDTO dto)
