@@ -47,6 +47,8 @@ public partial class Alocaco
      [Column("sala_designada")]
     public string? SalaDesignada { get; set; }
 
+    public string? Observacoes { get; set; }
+
     [ForeignKey("IdEvento")]
     [InverseProperty("Alocacos")]
     public virtual EventosProva IdEventoNavigation { get; set; } = null!;

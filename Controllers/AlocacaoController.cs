@@ -147,10 +147,64 @@ public class AlocacaoController : ControllerBase
         }
     }
 
+    [HttpPut("evento/{idEvento}/cancelar")]
+[Authorize] // Garante que só o candidato logado pode cancelar a si mesmo
+public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] CancelarCandidatoDTO dto)
+{
+    try
+    {
+        // Pega o ID do candidato logado no token do JWT
+        var idUsuario = int.Parse(User.FindFirst("Id")!.Value);
+
+        // 1. Encontra a inscrição específica deste candidato neste evento
+        var alocacao = await _context.Alocacoes
+            .FirstOrDefaultAsync(a => a.IdEvento == idEvento && a.IdUsuario == idUsuario);
+
+        if (alocacao == null) return NotFound("Inscrição não encontrada.");
+
+        var papelCancelado = alocacao.PapelEvento;
+        var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
+
+        // 2. O SEGREDO: Em vez de apagar, mudamos o status e salvamos o motivo!
+        alocacao.StatusParticipacao = "Cancelado";
+        alocacao.Observacoes = $"Cancelado pelo candidato. Motivo: {dto.Motivo}";
+
+        await _context.SaveChangesAsync();
+
+        // 3. Se ele estava a ocupar uma vaga real, puxamos o próximo da fila de reserva!
+        if (eraConfirmado)
+        {
+            var proximoDaReserva = await _context.Alocacoes
+                .Where(a => a.IdEvento == idEvento && 
+                            a.PapelEvento == papelCancelado && 
+                            a.StatusParticipacao == "Na Reserva")
+                .OrderBy(a => a.IdAlocacao)
+                .FirstOrDefaultAsync();
+
+            if (proximoDaReserva != null)
+            {
+                proximoDaReserva.StatusParticipacao = "Confirmado";
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        return Ok(new { mensagem = "Inscrição cancelada com sucesso." });
+    }
+    catch (Exception ex)
+    {
+        return BadRequest(new { mensagem = $"Erro ao cancelar: {ex.Message}" });
+    }
+}
+
     // Classe auxiliar DTO
     public class AtualizarSalaDTO
     {
         public int IdAlocacao { get; set; }
         public string Sala { get; set; } = string.Empty;
     }
+
+    public class CancelarCandidatoDTO
+{
+    public string Motivo { get; set; } = string.Empty;
+}
 }
