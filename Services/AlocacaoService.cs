@@ -287,8 +287,6 @@ public async Task CancelarInscricaoAsync(int idEnviado)
                 CheckInTime        = a.CheckInTime,
                 CheckOutTime       = a.CheckOutTime,
                 HorasTrabalhadas   = a.HorasTrabalhadas,
-                MotivoCancelamento  = a.MotivoCancelamento,
-                DataCancelamento    = a.DataCancelamento,
             })
             .ToListAsync();
     }
