@@ -197,11 +197,11 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
                 {
                     if (papelCancelado == "Ledor") 
                     {
-                        evento.VagasLedor++; 
+                        evento.VagasLedor--; 
                     }
                     else if (papelCancelado == "Fiscal") 
                     {
-                        evento.VagasFiscal++; 
+                        evento.VagasFiscal--; 
                     }
                 }
             }
