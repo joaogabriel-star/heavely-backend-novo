@@ -157,7 +157,7 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         if (dto == null || string.IsNullOrWhiteSpace(dto.Motivo))
             return BadRequest(new { mensagem = "O motivo do cancelamento não foi enviado ao servidor." });
 
-        // 2. A MÁGICA: Usando a sua exata forma de buscar o ID!
+        // 2. Busca o ID do usuário
         var idUsuario = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         // 3. Busca a inscrição
@@ -174,21 +174,19 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         alocacao.StatusParticipacao = "Cancelado";
         alocacao.Observacoes = $"Cancelado pelo candidato. Motivo: {dto.Motivo}";
 
-        await _context.SaveChangesAsync();
-
-        // 5. Puxa o próximo da reserva
-       if (eraConfirmado)
+        // 5. Puxa o próximo da reserva OU devolve a vaga
+        if (eraConfirmado)
         {
             var proximo = await _context.Alocacoes
-                .Where(a => a.IdEvento == idEvento && a.PapelEvento == papelCancelado && a.StatusParticipacao == "Cancelado")
+                // CORREÇÃO AQUI: Procurar quem está "Na Reserva" e não "Cancelado"
+                .Where(a => a.IdEvento == idEvento && a.PapelEvento == papelCancelado && a.StatusParticipacao == "Na Reserva")
                 .OrderBy(a => a.IdAlocacao)
                 .FirstOrDefaultAsync();
 
             if (proximo != null)
             {
-                // Se tem reserva, o próximo assume e a vaga volta a ficar ocupada
+                // Se tem reserva, o próximo assume e a vaga continua ocupada
                 proximo.StatusParticipacao = "Confirmado";
-                await _context.SaveChangesAsync();
             }
             else
             {
@@ -199,15 +197,18 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
                 {
                     if (papelCancelado == "Ledor") 
                     {
-                        evento.VagasLedor++; // ← USE O NOME EXATO DO SEU Evento.cs
+                        evento.VagasLedor++; 
                     }
                     else if (papelCancelado == "Fiscal") 
                     {
-                        evento.VagasFiscal++; // ← USE O NOME EXATO DO SEU Evento.cs
+                        evento.VagasFiscal++; 
                     }
                 }
             }
         }
+
+        // 6. Salva todas as mudanças de uma vez só!
+        await _context.SaveChangesAsync();
 
         return Ok(new { mensagem = "Inscrição cancelada com sucesso." });
     }
@@ -216,7 +217,6 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         return BadRequest(new { mensagem = $"Erro ao cancelar: {ex.Message}" });
     }
 }
-
     // Classe auxiliar DTO
     public class AtualizarSalaDTO
     {
