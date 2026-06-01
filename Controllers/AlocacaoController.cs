@@ -184,31 +184,6 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
                 // TEM RESERVA: O próximo senta na cadeira. A barra não mexe!
                 proximo.StatusParticipacao = "Confirmado";
             }
-            else
-            {
-                // NÃO TEM RESERVA: Temos que esvaziar a cadeira (Mexer no lado ESQUERDO da barra)
-                var evento = await _context.EventosProvas.FindAsync(idEvento);
-                
-                if (evento != null)
-                {
-                    if (papelCancelado == "Ledor") 
-                    {
-                        // SE O SEU BANCO GUARDA AS VAGAS DISPONÍVEIS, FAÇA ++
-                        evento.VagasLedor++; 
-                        
-                        // OBS: Se o seu banco guarda as vagas PREENCHIDAS, apague a linha de cima e use esta:
-                        // evento.VagasLedorPreenchidas--;
-                    }
-                    else if (papelCancelado == "Fiscal") 
-                    {
-                        // SE O SEU BANCO GUARDA AS VAGAS DISPONÍVEIS, FAÇA ++
-                        evento.VagasFiscal++; 
-                        
-                        // OBS: Se o seu banco guarda as vagas PREENCHIDAS, apague a linha de cima e use esta:
-                        // evento.VagasFiscalPreenchidas--;
-                    }
-                }
-            }
         }
 
         await _context.SaveChangesAsync();
