@@ -56,6 +56,5 @@ public partial class Alocaco
     [ForeignKey("IdUsuario")]
     [InverseProperty("Alocacos")]
     public virtual Usuario IdUsuarioNavigation { get; set; } = null!;
-    public string MotivoCancelamento { get; internal set; }
-    public DateTime? DataCancelamento { get; internal set; }
+    
 }
