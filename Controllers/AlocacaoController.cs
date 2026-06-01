@@ -153,14 +153,11 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
 {
     try
     {
-        // 1. Verifica se o motivo foi enviado corretamente
         if (dto == null || string.IsNullOrWhiteSpace(dto.Motivo))
             return BadRequest(new { mensagem = "O motivo do cancelamento não foi enviado ao servidor." });
 
-        // 2. Busca o ID do usuário
         var idUsuario = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        // 3. Busca a inscrição
         var alocacao = await _context.Alocacoes
             .FirstOrDefaultAsync(a => a.IdEvento == idEvento && a.IdUsuario == idUsuario);
 
@@ -170,44 +167,50 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         var papelCancelado = alocacao.PapelEvento;
         var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
 
-        // 4. Cancela e salva o motivo
+        // 1. O Candidato perde a vaga (vira Cancelado)
         alocacao.StatusParticipacao = "Cancelado";
         alocacao.Observacoes = $"Cancelado pelo candidato. Motivo: {dto.Motivo}";
 
-        // 5. Puxa o próximo da reserva OU devolve a vaga
+        // 2. Lógica para redistribuir ou devolver a vaga
         if (eraConfirmado)
         {
             var proximo = await _context.Alocacoes
-                // CORREÇÃO AQUI: Procurar quem está "Na Reserva" e não "Cancelado"
                 .Where(a => a.IdEvento == idEvento && a.PapelEvento == papelCancelado && a.StatusParticipacao == "Na Reserva")
                 .OrderBy(a => a.IdAlocacao)
                 .FirstOrDefaultAsync();
 
             if (proximo != null)
             {
-                // Se tem reserva, o próximo assume e a vaga continua ocupada
+                // TEM RESERVA: O próximo senta na cadeira. A barra não mexe!
                 proximo.StatusParticipacao = "Confirmado";
             }
             else
             {
-                // Devolvemos a vaga para a Prova!
+                // NÃO TEM RESERVA: Temos que esvaziar a cadeira (Mexer no lado ESQUERDO da barra)
                 var evento = await _context.EventosProvas.FindAsync(idEvento);
                 
                 if (evento != null)
                 {
                     if (papelCancelado == "Ledor") 
                     {
-                        evento.VagasLedor--; 
+                        // SE O SEU BANCO GUARDA AS VAGAS DISPONÍVEIS, FAÇA ++
+                        evento.VagasLedor++; 
+                        
+                        // OBS: Se o seu banco guarda as vagas PREENCHIDAS, apague a linha de cima e use esta:
+                        // evento.VagasLedorPreenchidas--;
                     }
                     else if (papelCancelado == "Fiscal") 
                     {
-                        evento.VagasFiscal--; 
+                        // SE O SEU BANCO GUARDA AS VAGAS DISPONÍVEIS, FAÇA ++
+                        evento.VagasFiscal++; 
+                        
+                        // OBS: Se o seu banco guarda as vagas PREENCHIDAS, apague a linha de cima e use esta:
+                        // evento.VagasFiscalPreenchidas--;
                     }
                 }
             }
         }
 
-        // 6. Salva todas as mudanças de uma vez só!
         await _context.SaveChangesAsync();
 
         return Ok(new { mensagem = "Inscrição cancelada com sucesso." });
@@ -217,6 +220,7 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         return BadRequest(new { mensagem = $"Erro ao cancelar: {ex.Message}" });
     }
 }
+
     // Classe auxiliar DTO
     public class AtualizarSalaDTO
     {
