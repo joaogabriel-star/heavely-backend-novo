@@ -12,4 +12,7 @@ public class ListaInscritosDTO
     public DateTime? CheckInTime { get; set; }
     public DateTime? CheckOutTime { get; set; }
     public double? HorasTrabalhadas { get; set; }
+    public string? MotivoCancelamento  { get; set; } 
+    public DateTime? DataCancelamento  { get; set; }
+    public string? Antecedencia        { get; set; } 
 }
