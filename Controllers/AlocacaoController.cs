@@ -146,8 +146,7 @@ public class AlocacaoController : ControllerBase
             return BadRequest(new { mensagem = ex.Message });
         }
     }
-
-    [HttpPut("evento/{idEvento}/cancelar")]
+[HttpPut("evento/{idEvento}/cancelar")]
 [Authorize]
 public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] CancelarCandidatoDTO dto)
 {
@@ -161,28 +160,44 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         var alocacao = await _context.Alocacoes
             .FirstOrDefaultAsync(a => a.IdEvento == idEvento && a.IdUsuario == idUsuario);
 
-        if (alocacao == null) 
+        if (alocacao == null)
             return NotFound(new { mensagem = "Inscrição não encontrada no banco de dados." });
 
         var papelCancelado = alocacao.PapelEvento;
-        var eraConfirmado = alocacao.StatusParticipacao == "Confirmado";
+        var eraConfirmado  = alocacao.StatusParticipacao == "Confirmado";
 
-        // 1. O Candidato perde a vaga (vira Cancelado)
+        // 1. Marca como Cancelado
         alocacao.StatusParticipacao = "Cancelado";
         alocacao.Observacoes = $"Cancelado pelo candidato. Motivo: {dto.Motivo}";
 
-        // 2. Lógica para redistribuir ou devolver a vaga
+        // 2. Redistribui ou devolve vaga
         if (eraConfirmado)
         {
             var proximo = await _context.Alocacoes
-                .Where(a => a.IdEvento == idEvento && a.PapelEvento == papelCancelado && a.StatusParticipacao == "Na Reserva")
+                .Where(a => a.IdEvento == idEvento
+                         && a.PapelEvento == papelCancelado
+                         && a.StatusParticipacao == "Na Reserva")
                 .OrderBy(a => a.IdAlocacao)
                 .FirstOrDefaultAsync();
 
             if (proximo != null)
             {
-                // TEM RESERVA: O próximo senta na cadeira. A barra não mexe!
+                // Tem reserva → próximo assume, vagas não mudam
                 proximo.StatusParticipacao = "Confirmado";
+            }
+            else
+            {
+                // Sem reserva → devolve a vaga ao pool
+                var evento = await _context.EventosProvas.FindAsync(idEvento);
+                if (evento != null)
+                {
+                    // ✅ CORREÇÃO: VagasLedor/VagasFiscal são int (não int?),
+                    //    remova o ?? 0 — use += 1 diretamente
+                    if (papelCancelado == "Ledor")
+                        evento.VagasLedor += 1;
+                    else if (papelCancelado == "Fiscal")
+                        evento.VagasFiscal += 1;
+                }
             }
         }
 
@@ -192,7 +207,7 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
     }
     catch (Exception ex)
     {
-        return BadRequest(new { mensagem = $"Erro ao cancelar: {ex.Message}" });
+        return StatusCode(500, new { mensagem = $"Erro interno ao cancelar: {ex.Message}" });
     }
 }
 
