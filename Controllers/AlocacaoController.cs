@@ -156,7 +156,7 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
     try
     {
         if (dto == null || string.IsNullOrWhiteSpace(dto.Motivo))
-            return BadRequest(new { mensagem = "O motivo do cancelamento não foi enviado ao servidor." });
+            return BadRequest(new { mensagem = "O motivo não foi enviado." });
 
         var idUsuario = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -164,12 +164,12 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
             .FirstOrDefaultAsync(a => a.IdEvento == idEvento && a.IdUsuario == idUsuario);
 
         if (alocacao == null)
-            return NotFound(new { mensagem = "Inscrição não encontrada no banco de dados." });
+            return NotFound(new { mensagem = "Inscrição não encontrada." });
 
         var papelCancelado = alocacao.PapelEvento;
         var eraConfirmado  = alocacao.StatusParticipacao == "Confirmado";
 
-        // 1. Marca como Cancelado. A vaga fica logo livre porque o sistema vai ver que há menos um "Confirmado".
+        // 1. Marca como Cancelado. A vaga fica logo livre (o sistema vê que há menos um Confirmado)
         alocacao.StatusParticipacao = "Cancelado";
         alocacao.Observacoes = $"Cancelado pelo candidato. Motivo: {dto.Motivo}";
 
@@ -188,12 +188,9 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
                 // Puxamos o próximo da fila! 
                 proximo.StatusParticipacao = "Confirmado";
             }
-            // NOTA: Se o "proximo" for nulo (não tem reserva), não fazemos nada! 
-            // O Evento continua com a mesma capacidade total, e a vaga fica lá, vazia e disponível.
         }
 
         await _context.SaveChangesAsync();
-
         return Ok(new { mensagem = "Inscrição cancelada com sucesso." });
     }
     catch (Exception ex)

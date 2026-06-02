@@ -40,35 +40,46 @@ public class EventoService : IEventoService
     }
 
     public async Task<List<EventoRespostaDTO>> ListarEventosAsync()
-{
-    var eventos = await _context.EventosProvas
-        .Where(e => e.StatusEvento == "ATIVO")
-        .OrderBy(e => e.DataProva)
-        .ToListAsync();
-
-    var listaRetorno = new List<EventoRespostaDTO>();
-
-    foreach (var e in eventos)
     {
-        var dto = MapearResposta(e);
+        var eventos = await _context.EventosProvas
+            .Where(e => e.StatusEvento == "ATIVO")
+            .OrderBy(e => e.DataProva)
+            .ToListAsync();
 
-        // 1. Conta quantos Ledores e Fiscais já estão na tabela de alocação para esta prova
-        var qtdLedor = await _context.Alocacoes
-            .CountAsync(a => a.IdEvento == e.IdEvento && a.PapelEvento == "Ledor");
-            
-        var qtdFiscal = await _context.Alocacoes
-            .CountAsync(a => a.IdEvento == e.IdEvento && a.PapelEvento == "Fiscal");
+        var listaRetorno = new List<EventoRespostaDTO>();
 
-        // 2. Faz a matemática e preenche o DTO
-        dto.VagasLedorDisponiveis = e.VagasLedor - qtdLedor;
-        dto.VagasFiscalDisponiveis = e.VagasFiscal - qtdFiscal;
-        dto.VagasPreenchidas = qtdLedor + qtdFiscal;
+        foreach (var e in eventos)
+        {
+            var dto = MapearResposta(e);
 
-        listaRetorno.Add(dto);
+            // 1. Conta apenas quem está Confirmado ou Presente
+            var qtdLedor = await _context.Alocacoes
+                .CountAsync(a => a.IdEvento == e.IdEvento 
+                              && a.PapelEvento == "Ledor"
+                              && (a.StatusParticipacao == "Confirmado" || a.StatusParticipacao == "Presente"));
+                
+            var qtdFiscal = await _context.Alocacoes
+                .CountAsync(a => a.IdEvento == e.IdEvento 
+                              && a.PapelEvento == "Fiscal"
+                              && (a.StatusParticipacao == "Confirmado" || a.StatusParticipacao == "Presente"));
+
+            // NOVO: Contar quantos estão na reserva para mostrar no frontend
+            var qtdReserva = await _context.Alocacoes
+                .CountAsync(a => a.IdEvento == e.IdEvento 
+                              && a.StatusParticipacao == "Na Reserva");
+
+            // 2. Faz a matemática e preenche o DTO
+            dto.VagasLedorDisponiveis = e.VagasLedor - qtdLedor;
+            dto.VagasFiscalDisponiveis = e.VagasFiscal - qtdFiscal;
+            dto.VagasPreenchidas = qtdLedor + qtdFiscal;
+            // Se o teu DTO não tiver a propriedade Reservas, terás de a adicionar no DTO, ou podes ignorar esta linha:
+            // dto.Reservas = qtdReserva; 
+
+            listaRetorno.Add(dto);
+        }
+
+        return listaRetorno;
     }
-
-    return listaRetorno;
-}
 
     public async Task<EventoRespostaDTO> BuscarEventoPorIdAsync(int idEvento)
     {
@@ -160,9 +171,9 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
 
     private int ContarVagasOcupadas(EventosProva evento, string papel)
     {
-        return evento.Alocacos           // ← corrigido
+        return evento.Alocacos           // ← mantido como no teu código original
             .Count(a => a.PapelEvento == papel &&
-                        a.StatusParticipacao == "Cancelado");
+                        (a.StatusParticipacao == "Confirmado" || a.StatusParticipacao == "Presente"));
     }
 
     private EventoRespostaDTO MontarResposta(
