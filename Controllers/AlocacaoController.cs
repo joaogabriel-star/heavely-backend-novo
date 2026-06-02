@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SistemaHEAVELYBackend.DTOs.Alocacoes;
 using SistemaHEAVELYBackend.Services.Interfaces;
-using SistemaHEAVELYBackend.Data; // Certifique-se de que este using aponta para onde está o seu AppDbContext
+using SistemaHEAVELYBackend.Data; 
 using System.Security.Claims;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
+using System.Linq;
+using Microsoft.EntityFrameworkCore;
 
 [ApiController]
 [Route("api/alocacoes")]
@@ -146,7 +148,8 @@ public class AlocacaoController : ControllerBase
             return BadRequest(new { mensagem = ex.Message });
         }
     }
-[HttpPut("evento/{idEvento}/cancelar")]
+
+    [HttpPut("evento/{idEvento}/cancelar")]
 [Authorize]
 public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] CancelarCandidatoDTO dto)
 {
@@ -166,11 +169,11 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         var papelCancelado = alocacao.PapelEvento;
         var eraConfirmado  = alocacao.StatusParticipacao == "Confirmado";
 
-        // 1. Marca como Cancelado
+        // 1. Marca como Cancelado. A vaga fica logo livre porque o sistema vai ver que há menos um "Confirmado".
         alocacao.StatusParticipacao = "Cancelado";
         alocacao.Observacoes = $"Cancelado pelo candidato. Motivo: {dto.Motivo}";
 
-        // 2. Redistribui ou devolve vaga
+        // 2. Redistribui a vaga APENAS se houver alguém na reserva
         if (eraConfirmado)
         {
             var proximo = await _context.Alocacoes
@@ -182,23 +185,11 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
 
             if (proximo != null)
             {
-                // Tem reserva → próximo assume, vagas não mudam
+                // Puxamos o próximo da fila! 
                 proximo.StatusParticipacao = "Confirmado";
             }
-            else
-            {
-                // Sem reserva → devolve a vaga ao pool
-                var evento = await _context.EventosProvas.FindAsync(idEvento);
-                if (evento != null)
-                {
-                    // ✅ CORREÇÃO: VagasLedor/VagasFiscal são int (não int?),
-                    //    remova o ?? 0 — use += 1 diretamente
-                    if (papelCancelado == "Ledor")
-                        evento.VagasLedor += 1;
-                    else if (papelCancelado == "Fiscal")
-                        evento.VagasFiscal += 1;
-                }
-            }
+            // NOTA: Se o "proximo" for nulo (não tem reserva), não fazemos nada! 
+            // O Evento continua com a mesma capacidade total, e a vaga fica lá, vazia e disponível.
         }
 
         await _context.SaveChangesAsync();
@@ -219,7 +210,7 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
     }
 
     public class CancelarCandidatoDTO
-{
-    public string Motivo { get; set; } = string.Empty;
-}
+    {
+        public string Motivo { get; set; } = string.Empty;
+    }
 }
