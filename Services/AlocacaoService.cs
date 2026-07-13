@@ -144,36 +144,29 @@ public class AlocacaoService : IAlocacaoService
     }
 
     // ── CANCELAMENTO PELO COORDENADOR (Apaga do banco e puxa a fila) ──────
-public async Task CancelarInscricaoAsync(int idEnviado)
+public async Task CancelarInscricaoAsync(int idAlocacao)
 {
-    // 1. Tenta achar pela Chave Primária normal
-    var alocacao = await _context.Alocacoes.FindAsync(idEnviado);
+    // 1. Tenta achar pela Chave Primária
+    var alocacao = await _context.Alocacoes.FindAsync(idAlocacao);
 
-    // 2. Se não achou, o React provavelmente enviou o IdUsuario por engano.
-    // Vamos corrigir isso automaticamente procurando a alocação deste usuário!
+    // 2. Se não existir, estoura um erro visível — sem adivinhar outra alocação.
     if (alocacao == null)
     {
-        alocacao = await _context.Alocacoes.FirstOrDefaultAsync(a => a.IdUsuario == idEnviado);
-    }
-
-    // 3. FIM DA FALHA SILENCIOSA: Se não existir de todo, estoura um erro visível!
-    if (alocacao == null)
-    {
-        throw new Exception($"Falha crítica: Nenhuma inscrição encontrada com o ID {idEnviado}.");
+        throw new Exception("Inscrição não encontrada.");
     }
 
     var idEvento = alocacao.IdEvento;
     var papelCancelado = alocacao.PapelEvento;
     var eraConfirmado = alocacao.StatusParticipacao == "Confirmado" || alocacao.StatusParticipacao == "Presente";
 
-    // 4. Remove a inscrição DEFINITIVAMENTE do banco
+    // 3. Remove a inscrição DEFINITIVAMENTE do banco
     _context.Alocacoes.Remove(alocacao);
-    
-    // ATENÇÃO: Como o seu sistema não tem colunas físicas de vagas disponíveis, 
-    // salvar a exclusão aqui já liberta a vaga dinamicamente para os candidatos!
-    await _context.SaveChangesAsync(); 
 
-    // 5. Se a pessoa que saiu estava confirmada, verifica se há alguém na reserva para herdar a vaga
+    // ATENÇÃO: Como o seu sistema não tem colunas físicas de vagas disponíveis,
+    // salvar a exclusão aqui já liberta a vaga dinamicamente para os candidatos!
+    await _context.SaveChangesAsync();
+
+    // 4. Se a pessoa que saiu estava confirmada, verifica se há alguém na reserva para herdar a vaga
     if (eraConfirmado)
     {
         var proximoDaReserva = await _context.Alocacoes

@@ -52,6 +52,16 @@ public class AlocacaoController : ControllerBase
     {
         try
         {
+            var alocacao = await _context.Alocacoes.FindAsync(idAlocacao);
+            if (alocacao == null)
+                return NotFound(new { mensagem = "Inscrição não encontrada." });
+
+            var idUsuarioLogado = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var ehAdmin = User.IsInRole("Admin");
+
+            if (!ehAdmin && alocacao.IdUsuario != idUsuarioLogado)
+                return Forbid();
+
             await _alocacaoService.CancelarInscricaoAsync(idAlocacao);
             return Ok(new { mensagem = "Inscrição cancelada e vaga liberada!" });
         }
