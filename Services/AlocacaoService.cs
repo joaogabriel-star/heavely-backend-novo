@@ -169,29 +169,18 @@ public async Task CancelarInscricaoAsync(int idAlocacao)
     // 4. Se a pessoa que saiu estava confirmada, verifica se há alguém na reserva para herdar a vaga
     if (eraConfirmado)
     {
-        var proximoDaReserva = await _context.Alocacoes
-            .Where(a => a.IdEvento == idEvento && 
-                        a.PapelEvento == papelCancelado && 
-                        a.StatusParticipacao == "Na Reserva")
-            .OrderBy(a => a.IdAlocacao) // Puxa o mais antigo da fila
-            .FirstOrDefaultAsync();
-
-        if (proximoDaReserva != null)
-        {
-            // Promove quem estava na reserva
-            proximoDaReserva.StatusParticipacao = "Confirmado";
-            await _context.SaveChangesAsync();
-        }
+        await PromoverProximoDaReserva(idEvento, papelCancelado);
     }
 }
     // ── MÉTODO REUTILIZÁVEL PARA PUXAR A FILA ─────────────────────────────
-    private async Task PromoverProximoDaReserva(int idEvento, string papelEvento)
+    // Critério de promoção: ordem de inscrição (IdAlocacao crescente == primeiro que entrou na reserva).
+    public async Task PromoverProximoDaReserva(int idEvento, string papelEvento)
     {
         var proximoDaReserva = await _context.Alocacoes
             .Where(a => a.IdEvento == idEvento &&
                         a.PapelEvento == papelEvento &&
                         a.StatusParticipacao == "Reserva")
-            .OrderBy(a => a.PosicaoReserva) // Pega o 1º da fila
+            .OrderBy(a => a.IdAlocacao) // Pega o 1º que se inscreveu na fila
             .FirstOrDefaultAsync();
 
         if (proximoDaReserva != null)
@@ -199,6 +188,12 @@ public async Task CancelarInscricaoAsync(int idAlocacao)
             // Promove o reserva para Confirmado
             proximoDaReserva.StatusParticipacao = "Confirmado";
             proximoDaReserva.PosicaoReserva = null; // Saiu da reserva
+
+            // Salva a promoção ANTES de consultar quem ainda está "Reserva" — senão a query
+            // abaixo ainda vê a linha do promovido como "Reserva" no banco (identity map do EF
+            // devolve a mesma instância já modificada) e o laço de reordenação sobrescreve o
+            // PosicaoReserva dele de volta pra um número.
+            await _context.SaveChangesAsync();
 
             // Reordena a fila — todos descem uma posição
             var restantesNaReserva = await _context.Alocacoes

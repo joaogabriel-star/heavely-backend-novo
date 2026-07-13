@@ -12,6 +12,9 @@ public interface IAlocacaoService
 
     Task CancelarInscricaoAsync(int idAlocacao);
 
+    // Promove o próximo da fila de reserva (por ordem de inscrição) pra Confirmado
+    Task PromoverProximoDaReserva(int idEvento, string papelEvento);
+
     // Registra chegada no dia da prova
     Task<AlocacaoRespostaDTO> RegistrarCheckInAsync(int idEvento, int idUsuario);
 

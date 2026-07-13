@@ -182,25 +182,14 @@ public async Task<IActionResult> CancelarPorCandidato(int idEvento, [FromBody] C
         // 1. Marca como Cancelado. A vaga fica logo livre (o sistema vê que há menos um Confirmado)
         alocacao.StatusParticipacao = "Cancelado";
         alocacao.Observacoes = $"Cancelado pelo candidato. Motivo: {dto.Motivo}";
+        await _context.SaveChangesAsync();
 
         // 2. Redistribui a vaga APENAS se houver alguém na reserva
         if (eraConfirmado)
         {
-            var proximo = await _context.Alocacoes
-                .Where(a => a.IdEvento == idEvento
-                         && a.PapelEvento == papelCancelado
-                         && a.StatusParticipacao == "Na Reserva")
-                .OrderBy(a => a.IdAlocacao)
-                .FirstOrDefaultAsync();
-
-            if (proximo != null)
-            {
-                // Puxamos o próximo da fila! 
-                proximo.StatusParticipacao = "Confirmado";
-            }
+            await _alocacaoService.PromoverProximoDaReserva(idEvento, papelCancelado);
         }
 
-        await _context.SaveChangesAsync();
         return Ok(new { mensagem = "Inscrição cancelada com sucesso." });
     }
     catch (Exception ex)
