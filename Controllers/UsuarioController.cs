@@ -92,6 +92,7 @@ public class UsuarioController : ControllerBase
 
     // GET /api/usuarios/pendentes — admins pendentes (só Admin)
     [HttpGet("pendentes")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ListarPendentes()
     {
         try
@@ -106,6 +107,7 @@ public class UsuarioController : ControllerBase
     }
 
     [HttpGet("ativos")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ListarMembrosAtivos()
     {
         try
@@ -118,6 +120,7 @@ public class UsuarioController : ControllerBase
 
 
     [HttpPut("{id}/perfil")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> AlterarPerfil(int id, [FromQuery] string perfil)
     {
         try
@@ -129,6 +132,7 @@ public class UsuarioController : ControllerBase
     }
     // PUT /api/usuarios/{id}/aprovar — aprova admin (só Admin)
     [HttpPut("{id}/aprovar")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> AprovarAdmin(int id, [FromQuery] bool aprovar = true)
     {
         try
@@ -146,6 +150,7 @@ public class UsuarioController : ControllerBase
     }
 
     [HttpDelete("{id}/recusar")]
+    [Authorize(Roles = "Admin")]
 public async Task<IActionResult> RecusarUsuario(int id)
 {
     try
@@ -163,6 +168,7 @@ public async Task<IActionResult> RecusarUsuario(int id)
 
     // PUT /api/usuarios/{id}/status — ativa ou inativa usuário (só Admin)
     [HttpPut("{id}/status")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> AlterarStatus(int id, [FromQuery] string status)
     {
         try
