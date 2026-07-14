@@ -24,8 +24,8 @@ public class EventoService : IEventoService
             IdCriadorAdmin = idAdmin,
             TituloProva = dto.TituloProva,
             LocalProva = dto.LocalProva,
-            DataProva = dto.DataProva,
-            HorarioFim = dto.HorarioFim,
+            DataProva = ConverterHorarioBrasiliaParaUtc(dto.DataProva),
+            HorarioFim = ConverterHorarioBrasiliaParaUtc(dto.HorarioFim),
             VagasLedor = dto.VagasLedor,
             VagasFiscal = dto.VagasFiscal,
             StatusEvento = "ATIVO"
@@ -115,26 +115,11 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
     if (dto.TituloProva != null) evento.TituloProva = dto.TituloProva;
     if (dto.LocalProva != null) evento.LocalProva = dto.LocalProva;
 
-    // ─── NEUTRALIZAÇÃO DO FUSO HORÁRIO DA RAILWAY ───────────────────
-    // Identifica o fuso correto do Brasil (compatível com Windows local e Linux da Railway)
-    var fusoBrasil = TimeZoneInfo.FindSystemTimeZoneById(
-        Environment.OSVersion.Platform == PlatformID.Unix ? "America/Sao_Paulo" : "E. South America Standard Time");
-
-    if (dto.DataProva.HasValue) 
-    {
-        // Pega o horário vindo do formulário e desvincula de qualquer fuso implícito
-        var dataSemFuso = DateTime.SpecifyKind(dto.DataProva.Value, DateTimeKind.Unspecified);
-        // Converte para UTC considerando que a origem é o fuso de Brasília
-        evento.DataProva = TimeZoneInfo.ConvertTimeToUtc(dataSemFuso, fusoBrasil);
-    }
+    if (dto.DataProva.HasValue)
+        evento.DataProva = ConverterHorarioBrasiliaParaUtc(dto.DataProva.Value);
 
     if (dto.HorarioFim.HasValue)
-    {
-        // Faz o mesmo tratamento para o horário de término da prova
-        var fimSemFuso = DateTime.SpecifyKind(dto.HorarioFim.Value, DateTimeKind.Unspecified);
-        evento.HorarioFim = TimeZoneInfo.ConvertTimeToUtc(fimSemFuso, fusoBrasil);
-    }
-    // ────────────────────────────────────────────────────────────────
+        evento.HorarioFim = ConverterHorarioBrasiliaParaUtc(dto.HorarioFim.Value);
 
     if (dto.VagasLedor.HasValue) evento.VagasLedor = dto.VagasLedor.Value;
     if (dto.VagasFiscal.HasValue) evento.VagasFiscal = dto.VagasFiscal.Value;
@@ -168,6 +153,23 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
     }
 
     // ─── Métodos privados ────────────────────────────────────────────────────
+
+    // ─── NEUTRALIZAÇÃO DO FUSO HORÁRIO DA RAILWAY ───────────────────
+    // Identifica o fuso correto do Brasil (compatível com Windows local e Linux da Railway)
+    // e converte um horário de Brasília (sem fuso) para UTC antes de gravar no banco.
+    // Usado por CriarEventoAsync e AtualizarEventoAsync para que ambos gravem
+    // exatamente o mesmo offset.
+    private DateTime ConverterHorarioBrasiliaParaUtc(DateTime horarioBrasilia)
+    {
+        var fusoBrasil = TimeZoneInfo.FindSystemTimeZoneById(
+            Environment.OSVersion.Platform == PlatformID.Unix ? "America/Sao_Paulo" : "E. South America Standard Time");
+
+        // Desvincula o horário vindo do formulário de qualquer fuso implícito
+        var horarioSemFuso = DateTime.SpecifyKind(horarioBrasilia, DateTimeKind.Unspecified);
+
+        // Converte para UTC considerando que a origem é o fuso de Brasília
+        return TimeZoneInfo.ConvertTimeToUtc(horarioSemFuso, fusoBrasil);
+    }
 
     private int ContarVagasOcupadas(EventosProva evento, string papel)
     {
