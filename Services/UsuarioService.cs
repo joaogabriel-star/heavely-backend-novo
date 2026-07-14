@@ -51,6 +51,8 @@ public class UsuarioService : IUsuarioService
         // Atualiza só os campos preenchidos
         if (dto.NomeCompleto != null) usuario.NomeCompleto = dto.NomeCompleto;
         if (dto.Endereco != null) usuario.Endereco = dto.Endereco;
+        if (dto.ChavePix != null) usuario.ChavePix = dto.ChavePix;
+        if (dto.BancoNome != null) usuario.BancoNome = dto.BancoNome;
 
         // Atualiza dados acadêmicos se existirem
         if (usuario.DadosAcademico != null)
@@ -256,7 +258,9 @@ public async Task DeletarUsuarioAsync(int idUsuario)
             FotoPerfilUrl = usuario.FotoPerfilUrl,
             DataNascimento = usuario.DataNascimento.ToDateTime(TimeOnly.MinValue),
             StatusConta = usuario.StatusConta ?? string.Empty,
-            Perfil = usuario.IdPerfilNavigation.NomePerfil
+            Perfil = usuario.IdPerfilNavigation.NomePerfil,
+            ChavePix = usuario.ChavePix ?? string.Empty,
+            BancoNome = usuario.BancoNome ?? string.Empty
         };
 
         // Adiciona dados acadêmicos se existirem

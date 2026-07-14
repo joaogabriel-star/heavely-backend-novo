@@ -17,4 +17,7 @@ public class AtualizarPerfilDTO
     public string? ExperienciaProfissional { get; set; }
     public string? NivelIngles { get; set; }
     public string? NivelEspanhol { get; set; }
+
+    public string? ChavePix { get; set; }
+    public string? BancoNome { get; set; }
 }
