@@ -103,37 +103,8 @@ public class AlocacaoController : ControllerBase
         }
     }
 
-    // PUT /api/alocacoes/{idEvento}/checkin
-    [HttpPut("{idEvento}/checkin")]
-    public async Task<IActionResult> RegistrarCheckIn(int idEvento)
-    {
-        try
-        {
-            var idUsuario = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var resultado = await _alocacaoService.RegistrarCheckInAsync(idEvento, idUsuario);
-            return Ok(resultado);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { mensagem = ex.Message });
-        }
-    }
-
-    // PUT /api/alocacoes/{idEvento}/checkout
-    [HttpPut("{idEvento}/checkout")]
-    public async Task<IActionResult> RegistrarCheckOut(int idEvento)
-    {
-        try
-        {
-            var idUsuario = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var resultado = await _alocacaoService.RegistrarCheckOutAsync(idEvento, idUsuario);
-            return Ok(resultado);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { mensagem = ex.Message });
-        }
-    }
+    // Check-in/check-out migraram para PontoController (/api/ponto/entrada e /saida),
+    // que valida o token do QR Code e as janelas de horário.
 
     // PUT /api/alocacoes/salvar-salas
     [HttpPut("salvar-salas")]

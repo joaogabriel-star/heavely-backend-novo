@@ -44,9 +44,9 @@ namespace SistemaHEAVELYBackend.Controllers
             return resultado.Sucesso ? Ok(resultado) : BadRequest(resultado);
         }
 
-        // GET /api/ponto/qrcode/{idEvento} — só Admin
+        // GET /api/ponto/qrcode/{idEvento} — Admin ou Coordenação
         [HttpGet("qrcode/{idEvento}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Coordenacao")]
         public async Task<IActionResult> GerarQRCode(int idEvento)
         {
             var resultado = await _pontoService.GerarQRCodeEventoAsync(idEvento);

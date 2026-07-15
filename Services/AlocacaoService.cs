@@ -212,52 +212,8 @@ public async Task CancelarInscricaoAsync(int idAlocacao)
         }
     }
 
-    public async Task<AlocacaoRespostaDTO> RegistrarCheckInAsync(int idEvento, int idUsuario)
-    {
-        var alocacao = await _context.Alocacoes
-            .FirstOrDefaultAsync(a =>
-                a.IdEvento == idEvento &&
-                a.IdUsuario == idUsuario &&
-                a.StatusParticipacao == "Confirmado");
-
-        if (alocacao == null)
-            throw new Exception("Inscrição confirmada não encontrada para este evento.");
-
-        if (alocacao.CheckInTime.HasValue)
-            throw new Exception("Check-in já foi realizado.");
-
-        alocacao.CheckInTime = DateTime.Now;
-        alocacao.StatusParticipacao = "Presente";
-        await _context.SaveChangesAsync();
-
-        var evento = await _context.EventosProvas.FindAsync(idEvento);
-        var usuario = await _context.Usuarios.FindAsync(idUsuario);
-
-        return MontarResposta(alocacao, evento!.TituloProva, usuario!.NomeCompleto);
-    }
-
-    public async Task<AlocacaoRespostaDTO> RegistrarCheckOutAsync(int idEvento, int idUsuario)
-    {
-        var alocacao = await _context.Alocacoes
-            .Include(a => a.IdEventoNavigation) 
-            .FirstOrDefaultAsync(a =>
-                a.IdEvento == idEvento &&
-                a.IdUsuario == idUsuario &&
-                a.StatusParticipacao == "Presente");
-
-        if (alocacao == null)
-            throw new Exception("Check-in não foi realizado ainda.");
-
-        if (alocacao.CheckOutTime.HasValue)
-            throw new Exception("Check-out já foi realizado.");
-
-        alocacao.CheckOutTime = DateTime.Now;
-        await _context.SaveChangesAsync();
-
-        var usuario = await _context.Usuarios.FindAsync(idUsuario);
-
-        return MontarResposta(alocacao, alocacao.IdEventoNavigation!.TituloProva, usuario!.NomeCompleto);
-    }
+    // Check-in/check-out migraram para PontoService (RegistrarEntradaAsync/RegistrarSaidaAsync),
+    // que valida o token do QR Code e as janelas de horário.
 
     public async Task<List<ListaInscritosDTO>> ListarInscritosAsync(int idEvento)
     {
