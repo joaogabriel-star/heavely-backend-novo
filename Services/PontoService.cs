@@ -9,10 +9,12 @@ namespace SistemaHEAVELYBackend.Services
     public class PontoService : IPontoService
     {
         private readonly AppDbContext _context;
+        private readonly IConfiguration _configuration;
 
-        public PontoService(AppDbContext context)
+        public PontoService(AppDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         // ── ENTRADA ───────────────────────────────────────────────────────
@@ -43,6 +45,7 @@ namespace SistemaHEAVELYBackend.Services
 
             // 3. Registra a hora real de chegada
             alocacao.CheckInTime = agora;
+            alocacao.StatusParticipacao = "Presente";
 
             // 4. Hora que o CÁLCULO começa:
             //    - Se chegou antes → cálculo começa no horário oficial da prova
@@ -78,7 +81,7 @@ namespace SistemaHEAVELYBackend.Services
                 .FirstOrDefaultAsync(a =>
                     a.IdUsuario == idUsuario &&
                     a.IdEvento  == idEvento  &&
-                    a.StatusParticipacao == "Confirmado" &&
+                    a.StatusParticipacao == "Presente" &&
                     a.CheckInTime != null);
 
             if (alocacao == null)
@@ -107,10 +110,9 @@ namespace SistemaHEAVELYBackend.Services
 
             var horasTrabalhadas = (agora - horaInicioCalculo).TotalHours;
 
-            // 5. Registra saída
-            alocacao.CheckOutTime       = agora;
-            alocacao.HorasTrabalhadas   = horasTrabalhadas;
-            alocacao.StatusParticipacao = "Presente";
+            // 5. Registra saída (StatusParticipacao já é "Presente" desde o check-in)
+            alocacao.CheckOutTime     = agora;
+            alocacao.HorasTrabalhadas = horasTrabalhadas;
 
             await _context.SaveChangesAsync();
 
@@ -131,8 +133,8 @@ namespace SistemaHEAVELYBackend.Services
                 throw new Exception("Evento não encontrado.");
 
             // Token único: idEvento + data + segredo fixo (hash SHA256)
-            var segredo  = "HIS_SECRET_2026"; // mova para appsettings.json
-            var base64   = $"{idEvento}:{evento.DataProva:yyyyMMdd}:{segredo}";
+            var segredo  = ObterSegredo();
+            var base64   = $"{idEvento}:{ParaDataBrasilia(evento.DataProva):yyyyMMdd}:{segredo}";
             var bytes    = System.Text.Encoding.UTF8.GetBytes(base64);
             var hash     = System.Security.Cryptography.SHA256.HashData(bytes);
             var token    = Convert.ToHexString(hash)[..16]; // primeiros 16 caracteres
@@ -151,12 +153,12 @@ namespace SistemaHEAVELYBackend.Services
             var evento = await _context.EventosProvas.FindAsync(idEvento);
             if (evento == null) return false;
 
-            // Token só vale no dia do evento
-            if (evento.DataProva.Date != DateTime.UtcNow.Date) return false;
+            // Token só vale no dia do evento (dia de Brasília, não UTC)
+            if (ParaDataBrasilia(evento.DataProva).Date != ParaDataBrasilia(DateTime.UtcNow).Date) return false;
 
             // Recalcula o token esperado
-            var segredo  = "HIS_SECRET_2026";
-            var base64   = $"{idEvento}:{evento.DataProva:yyyyMMdd}:{segredo}";
+            var segredo  = ObterSegredo();
+            var base64   = $"{idEvento}:{ParaDataBrasilia(evento.DataProva):yyyyMMdd}:{segredo}";
             var bytes    = System.Text.Encoding.UTF8.GetBytes(base64);
             var hash     = System.Security.Cryptography.SHA256.HashData(bytes);
             var tokenEsperado = Convert.ToHexString(hash)[..16];
@@ -188,5 +190,16 @@ namespace SistemaHEAVELYBackend.Services
         // ── Helper ────────────────────────────────────────────────────────
         private static PontoRespostaDTO Erro(string mensagem) =>
             new() { Sucesso = false, Mensagem = mensagem };
+
+        private string ObterSegredo() =>
+            _configuration["Ponto:QrSecret"]
+            ?? throw new InvalidOperationException("Configuração 'Ponto:QrSecret' não foi definida.");
+
+        private static DateTime ParaDataBrasilia(DateTime utc)
+        {
+            var fusoBrasil = TimeZoneInfo.FindSystemTimeZoneById(
+                Environment.OSVersion.Platform == PlatformID.Unix ? "America/Sao_Paulo" : "E. South America Standard Time");
+            return TimeZoneInfo.ConvertTimeFromUtc(utc, fusoBrasil);
+        }
     }
 }
