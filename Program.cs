@@ -27,12 +27,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// 3. CORS — permite o React acessar a API
+// 3. CORS — restrito às origens listadas em CORS_ORIGIN (fail-closed se não setada em produção)
+var corsOrigins = (builder.Configuration["CORS_ORIGIN"] ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .ToList();
+
+if (builder.Environment.IsDevelopment())
+{
+    corsOrigins.Add("http://localhost:5173");
+}
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("PermitirTudo", policy =>
+    options.AddPolicy("PermitirOrigensConfiguradas", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(corsOrigins.ToArray())
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -57,7 +66,7 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseCors("PermitirTudo");
+app.UseCors("PermitirOrigensConfiguradas");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
