@@ -12,6 +12,10 @@ public class EventoRespostaDTO
     public string StatusEvento { get; set; } = string.Empty;
     public string CriadoPor { get; set; } = string.Empty; // nome do admin
 
+    public string? Serie { get; set; }
+    public decimal? ValorHora { get; set; }
+    public string? Observacoes { get; set; }
+
     // Vagas que ainda restam — calculado no Service
     public int VagasLedorDisponiveis { get; set; }
     public int VagasFiscalDisponiveis { get; set; }

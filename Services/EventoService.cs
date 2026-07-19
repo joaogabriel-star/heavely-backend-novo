@@ -28,7 +28,10 @@ public class EventoService : IEventoService
             HorarioFim = ConverterHorarioBrasiliaParaUtc(dto.HorarioFim),
             VagasLedor = dto.VagasLedor,
             VagasFiscal = dto.VagasFiscal,
-            StatusEvento = "ATIVO"
+            StatusEvento = "ATIVO",
+            Serie = dto.Serie,
+            ValorHora = dto.ValorHora,
+            Observacoes = dto.Observacoes
         };
 
         _context.EventosProvas.Add(evento);        // ← corrigido
@@ -124,6 +127,10 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
     if (dto.VagasLedor.HasValue) evento.VagasLedor = dto.VagasLedor.Value;
     if (dto.VagasFiscal.HasValue) evento.VagasFiscal = dto.VagasFiscal.Value;
 
+    if (dto.Serie != null) evento.Serie = dto.Serie;
+    if (dto.ValorHora.HasValue) evento.ValorHora = dto.ValorHora.Value;
+    if (dto.Observacoes != null) evento.Observacoes = dto.Observacoes;
+
     if (evento.HorarioFim <= evento.DataProva)
         throw new Exception("O horário de fim deve ser posterior ao horário de início.");
 
@@ -195,6 +202,9 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
             VagasFiscal = evento.VagasFiscal,
             StatusEvento = evento.StatusEvento ?? "ATIVO",
             CriadoPor = nomeAdmin,
+            Serie = evento.Serie,
+            ValorHora = evento.ValorHora,
+            Observacoes = evento.Observacoes,
             VagasLedorDisponiveis = evento.VagasLedor - ledoresConfirmados,
             VagasFiscalDisponiveis = evento.VagasFiscal - fiscaisConfirmados
         };
@@ -257,7 +267,10 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
         DataProva = e.DataProva,
         VagasLedor = e.VagasLedor,
         VagasFiscal = e.VagasFiscal,
-        StatusEvento = e.StatusEvento ?? "ATIVO"
+        StatusEvento = e.StatusEvento ?? "ATIVO",
+        Serie = e.Serie,
+        ValorHora = e.ValorHora,
+        Observacoes = e.Observacoes
     };
 }
 }

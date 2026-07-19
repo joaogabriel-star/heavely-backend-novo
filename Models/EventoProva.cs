@@ -43,6 +43,13 @@ public partial class EventosProva
     [Column("observacoes")]
     public string? Observacoes { get; set; }
 
+    [Column("serie")]
+    [StringLength(50)]
+    public string? Serie { get; set; }
+
+    [Column("valor_hora", TypeName = "numeric(8,2)")]
+    public decimal? ValorHora { get; set; }
+
     [InverseProperty("IdEventoNavigation")]
     public virtual ICollection<Alocaco> Alocacos { get; set; } = new List<Alocaco>();
 
