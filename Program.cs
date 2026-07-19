@@ -63,8 +63,11 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // 6. Pipeline de execução
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseCors("PermitirOrigensConfiguradas");
 app.UseAuthentication();
