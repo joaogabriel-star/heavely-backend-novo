@@ -225,8 +225,12 @@ public async Task DeletarUsuarioAsync(int idUsuario)
         _context.DadosAcademicos.RemoveRange(dadosAcademicos);
     }
 
-    // 3. Se o sistema tiver tabelas de "DadosBancarios" ou "DadosAdministrativos", 
-    // adicione o mesmo bloco para elas aqui antes de apagar o utilizador.
+    // 3. Procura e remove os Dados Administrativos do utilizador (perfil Admin)
+    var dadosAdministrativos = await _context.DadosAdministrativos.Where(d => d.IdUsuario == idUsuario).ToListAsync();
+    if (dadosAdministrativos.Any())
+    {
+        _context.DadosAdministrativos.RemoveRange(dadosAdministrativos);
+    }
 
     // 4. Agora que os "filhos" foram limpos, procuramos o utilizador ("pai")
     var usuario = await _context.Usuarios.FindAsync(idUsuario);
