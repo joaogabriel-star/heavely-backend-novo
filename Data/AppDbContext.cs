@@ -23,6 +23,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Materia> Materias { get; set; }
 
+    public virtual DbSet<Ocorrencia> Ocorrencias { get; set; }
+
     public virtual DbSet<Perfi> Perfis { get; set; }
 
     public virtual DbSet<Usuario> Usuarios { get; set; }
@@ -81,6 +83,21 @@ public partial class AppDbContext : DbContext
         modelBuilder.Entity<Materia>(entity =>
         {
             entity.HasKey(e => e.IdMateria).HasName("materias_pkey");
+        });
+
+        modelBuilder.Entity<Ocorrencia>(entity =>
+        {
+            entity.HasKey(e => e.IdOcorrencia).HasName("ocorrencias_pkey");
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(d => d.IdEventoNavigation).WithMany()
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("ocorrencias_id_evento_fkey");
+
+            entity.HasOne(d => d.IdUsuarioNavigation).WithMany()
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("ocorrencias_id_usuario_fkey");
         });
 
         modelBuilder.Entity<Perfi>(entity =>

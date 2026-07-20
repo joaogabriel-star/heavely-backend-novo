@@ -16,3 +16,4 @@ global using SistemaHEAVELYBackend.Services;
 global using SistemaHEAVELYBackend.DTOs.Alocacoes; 
 global using SistemaHEAVELYBackend.DTOs.Usuarios;
 global using SistemaHEAVELYBackend.DTOs.Relatorios;
+global using SistemaHEAVELYBackend.DTOs.Ocorrencias;
