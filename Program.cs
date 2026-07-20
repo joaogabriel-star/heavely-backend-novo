@@ -64,6 +64,7 @@ builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IRelatorioService, RelatorioService>();
 builder.Services.AddScoped<IPontoService, PontoService>();
 builder.Services.AddScoped<IOcorrenciaService, OcorrenciaService>();
+builder.Services.AddScoped<INotaFiscalService, NotaFiscalService>();
 
 // 5. Configurações padrão da API
 builder.Services.AddControllers();
