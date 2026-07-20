@@ -255,15 +255,7 @@ public async Task CancelarInscricaoAsync(int idAlocacao)
 
     private double? CalcularHoras(DateTime? checkIn, DateTime? checkOut, DateTime dataOficialProva)
     {
-        if (!checkIn.HasValue || !checkOut.HasValue)
-            return null;
-
-        var inicioRealCalculo = checkIn.Value < dataOficialProva ? dataOficialProva : checkIn.Value;
-
-        if (checkOut.Value < inicioRealCalculo)
-            return 0;
-
-        return Math.Round((checkOut.Value - inicioRealCalculo).TotalHours, 2);
+        return CalculoHorasHelper.Calcular(checkIn, checkOut, dataOficialProva);
     }
 
     private AlocacaoRespostaDTO MontarResposta(

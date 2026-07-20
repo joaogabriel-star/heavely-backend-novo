@@ -39,7 +39,7 @@ public class RelatorioService : IRelatorioService
         // Monta os itens do relatório
         var itens = presentes.Select(a =>
         {
-            var horas = CalcularHoras(a.CheckInTime, a.CheckOutTime);
+            var horas = CalcularHoras(a.CheckInTime, a.CheckOutTime, evento.DataProva);
             var valor = CalcularValor(config, horas);
 
             return new RelatorioItemDTO
@@ -261,10 +261,9 @@ public class RelatorioService : IRelatorioService
 
     // ─── Métodos privados ─────────────────────────────────────────────────────
 
-    private double? CalcularHoras(DateTime? checkIn, DateTime? checkOut)
+    private double? CalcularHoras(DateTime? checkIn, DateTime? checkOut, DateTime dataOficialProva)
     {
-        if (!checkIn.HasValue || !checkOut.HasValue) return null;
-        return Math.Round((checkOut.Value - checkIn.Value).TotalHours, 2);
+        return CalculoHorasHelper.Calcular(checkIn, checkOut, dataOficialProva);
     }
 
     private decimal CalcularValor(ConfiguracaoRelatorioDTO config, double? horas)

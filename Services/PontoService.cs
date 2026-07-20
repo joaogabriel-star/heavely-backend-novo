@@ -102,13 +102,8 @@ namespace SistemaHEAVELYBackend.Services
                 return Erro($"Saída liberada somente após {minimoPermitido:HH:mm} " +
                             $"(70% da duração da prova).");
 
-            // 4. Calcula horas trabalhadas
-            //    Usa horaInicioCalculo (horário oficial ou chegada, o que for maior)
-            var horaInicioCalculo = alocacao.CheckInTime!.Value < evento.DataProva
-                ? evento.DataProva
-                : alocacao.CheckInTime.Value;
-
-            var horasTrabalhadas = (agora - horaInicioCalculo).TotalHours;
+            // 4. Calcula horas trabalhadas (fórmula única, ver CalculoHorasHelper)
+            var horasTrabalhadas = CalculoHorasHelper.Calcular(alocacao.CheckInTime, agora, evento.DataProva) ?? 0;
 
             // 5. Registra saída (StatusParticipacao já é "Presente" desde o check-in)
             alocacao.CheckOutTime     = agora;
