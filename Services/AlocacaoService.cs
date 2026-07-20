@@ -258,7 +258,7 @@ public async Task CancelarInscricaoAsync(int idAlocacao)
         if (!checkIn.HasValue || !checkOut.HasValue)
             return null;
 
-        var inicioRealCalculo = checkIn.Value > dataOficialProva ? dataOficialProva : checkIn.Value;
+        var inicioRealCalculo = checkIn.Value < dataOficialProva ? dataOficialProva : checkIn.Value;
 
         if (checkOut.Value < inicioRealCalculo)
             return 0;
