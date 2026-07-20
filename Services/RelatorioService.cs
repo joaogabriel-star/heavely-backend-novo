@@ -30,6 +30,11 @@ public class RelatorioService : IRelatorioService
         if (evento == null)
             throw new Exception("Evento não encontrado.");
 
+        // Se ValorPorHora não foi informado (ou veio 0/vazio), usa o ValorHora
+        // cadastrado no evento como default. Valor manual do coordenador tem prioridade.
+        if (config.TipoPagamento == "PorHora" && config.ValorPorHora <= 0 && evento.ValorHora.HasValue)
+            config.ValorPorHora = evento.ValorHora.Value;
+
         // Filtra só quem fez check-in (Presente)
         var presentes = evento.Alocacos
             .Where(a => a.StatusParticipacao == "Presente" ||
