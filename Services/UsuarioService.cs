@@ -232,17 +232,24 @@ public async Task DeletarUsuarioAsync(int idUsuario)
         _context.DadosAdministrativos.RemoveRange(dadosAdministrativos);
     }
 
-    // 4. Agora que os "filhos" foram limpos, procuramos o utilizador ("pai")
+    // 4. Procura e remove as Ocorrências relatadas pelo utilizador
+    var ocorrencias = await _context.Ocorrencias.Where(o => o.IdUsuario == idUsuario).ToListAsync();
+    if (ocorrencias.Any())
+    {
+        _context.Ocorrencias.RemoveRange(ocorrencias);
+    }
+
+    // 5. Agora que os "filhos" foram limpos, procuramos o utilizador ("pai")
     var usuario = await _context.Usuarios.FindAsync(idUsuario);
     if (usuario == null)
     {
         throw new Exception("Usuário não encontrado no banco de dados.");
     }
 
-    // 5. Remove o utilizador do sistema
+    // 6. Remove o utilizador do sistema
     _context.Usuarios.Remove(usuario);
-    
-    // 6. Salva todas as alterações de uma vez só no banco de dados
+
+    // 7. Salva todas as alterações de uma vez só no banco de dados
     await _context.SaveChangesAsync();
 }
     
