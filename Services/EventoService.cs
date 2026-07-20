@@ -16,7 +16,10 @@ public class EventoService : IEventoService
         if (dto.HorarioFim <= dto.DataProva)
             throw new Exception("O horário de fim deve ser posterior ao horário de início.");
 
-        if (dto.DataProva < DateTime.Now)
+        var dataProvaUtc = ConverterHorarioBrasiliaParaUtc(dto.DataProva);
+        var horarioFimUtc = ConverterHorarioBrasiliaParaUtc(dto.HorarioFim);
+
+        if (dataProvaUtc < DateTime.UtcNow)
             throw new Exception("Não é possível criar um evento em uma data passada.");
 
         var evento = new EventosProva
@@ -24,8 +27,8 @@ public class EventoService : IEventoService
             IdCriadorAdmin = idAdmin,
             TituloProva = dto.TituloProva,
             LocalProva = dto.LocalProva,
-            DataProva = ConverterHorarioBrasiliaParaUtc(dto.DataProva),
-            HorarioFim = ConverterHorarioBrasiliaParaUtc(dto.HorarioFim),
+            DataProva = dataProvaUtc,
+            HorarioFim = horarioFimUtc,
             VagasLedor = dto.VagasLedor,
             VagasFiscal = dto.VagasFiscal,
             StatusEvento = "ATIVO",
