@@ -210,50 +210,7 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
         };
     }
     
-    public async Task CandidatarSeAsync(int idEvento, int idUsuario, string papelEvento, string status)
-    {
-        // 1. Verifica se o evento existe
-        var evento = await _context.EventosProvas.FindAsync(idEvento);
-        if (evento == null) 
-            throw new Exception("Evento não encontrado.");
-
-        // 2. Verifica se o usuário já está inscrito neste evento para não duplicar
-        // Nota: O nome do DbSet pode ser Alocacos ou Alocacoes dependendo de como o C# gerou.
-        var jaInscrito = await _context.Alocacoes
-            .AnyAsync(a => a.IdEvento == idEvento && a.IdUsuario == idUsuario);
-
-        if (jaInscrito) 
-            throw new Exception("Você já solicitou inscrição ou está na reserva deste evento.");
-
-        // 3. Busca o usuário para saber o perfil dele (Ledor ou Fiscal)
-        var usuario = await _context.Usuarios
-            .Include(u => u.IdPerfilNavigation)
-            .FirstOrDefaultAsync(u => u.IdUsuario == idUsuario);
-
-        if (usuario == null) 
-            throw new Exception("Usuário não encontrado.");
-
-        // 4. Cria a nova alocação (Candidatura)
-        // Nota: O nome da classe gerada pode ser Alocaco ou Alocacao.
-        var novaAlocacao = new Alocaco 
-        {
-            IdEvento = idEvento,
-            IdUsuario = idUsuario,
-            PapelEvento = papelEvento,
-            StatusParticipacao = status,
-            DataInscricao = DateTime.UtcNow, 
-        };
-
-        _context.Alocacoes.Add(novaAlocacao);
-        await _context.SaveChangesAsync();
-    }
-
     public Task<EventoRespostaDTO> BuscarEventoPorIdAsync(int idEvento, int idUsuario, string papelEvento)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task CandidatarSeAsync(int idEvento, int idUsuario, string papelEvento)
     {
         throw new NotImplementedException();
     }

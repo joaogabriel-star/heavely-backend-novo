@@ -71,25 +71,6 @@ public class EventoController : ControllerBase
         }
     }
 
-    // POST /api/eventos/{id}/candidatar
-    [HttpPost("{id}/candidatar")]
-[Authorize]
-public async Task<IActionResult> Candidatar(int id, [FromBody] CandidaturaDTO dto)
-{
-    try
-    {
-        var idUsuario = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-        await _eventoService.CandidatarSeAsync(id, idUsuario, dto.PapelEvento);
-        
-        return Ok(new { mensagem = "Candidatura realizada com sucesso!" });
-    }
-    catch (Exception ex)
-    {
-        return BadRequest(new { mensagem = ex.Message });
-    }
-}
-
     // PUT /api/eventos/5 — edita evento (só Admin)
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin")]
@@ -121,9 +102,4 @@ public async Task<IActionResult> Candidatar(int id, [FromBody] CandidaturaDTO dt
             return BadRequest(new { mensagem = ex.Message });
         }
     }
-public class CandidaturaDTO
-{
-    public string PapelEvento { get; set; } = string.Empty;
-}
-    
 }

@@ -16,7 +16,4 @@ public interface IEventoService
 
     // Cancela um evento — só Admin
     Task CancelarEventoAsync(int idEvento);
-
-    // Adicione esta linha junto com as outras
-    Task CandidatarSeAsync(int idEvento, int idUsuario, string papelEvento);
 }
