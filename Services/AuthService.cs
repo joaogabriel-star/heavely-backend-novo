@@ -8,17 +8,22 @@ using SistemaHEAVELYBackend.Services.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
+using Microsoft.AspNetCore.Http;
 
 
 public class AuthService : IAuthService
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly Cloudinary _cloudinary;
 
-    public AuthService(AppDbContext context, IConfiguration configuration)
+    public AuthService(AppDbContext context, IConfiguration configuration, Cloudinary cloudinary)
     {
         _context = context;
         _configuration = configuration;
+        _cloudinary = cloudinary;
     }
 
     public async Task<AuthRespostaDTO> CadastrarLedorFiscalAsync(CadastroLedorFiscalDTO dto)
@@ -201,5 +206,95 @@ public class AuthService : IAuthService
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    // ── UPLOAD DE DOCUMENTOS (diploma / nada consta) ──────────────────────
+    public async Task<EnviarDocumentosRespostaDTO> EnviarDocumentosAsync(int idUsuario, EnviarDocumentosDTO dto)
+    {
+        var usuario = await _context.Usuarios
+            .Include(u => u.DadosAcademico)
+            .FirstOrDefaultAsync(u => u.IdUsuario == idUsuario);
+
+        if (usuario == null)
+            throw new Exception("Usuário não encontrado.");
+
+        if (usuario.DadosAcademico == null)
+            throw new Exception("Este usuário não possui um cadastro de Ledor/Fiscal válido para receber documentos.");
+
+        if (usuario.StatusConta != "pendente")
+            throw new Exception("Só é possível enviar documentos enquanto o cadastro está pendente de aprovação.");
+
+        if (dto.Diploma == null && dto.NadaConsta == null)
+            throw new Exception("Envie ao menos um arquivo (diploma ou nada consta).");
+
+        const long tamanhoMaximo = 5 * 1024 * 1024; // 5MB
+        var tiposPermitidos = new[] { "application/pdf", "image/jpeg", "image/png" };
+
+        void ValidarArquivo(IFormFile? arquivo, string nomeCampo)
+        {
+            if (arquivo == null) return;
+            if (arquivo.Length > tamanhoMaximo)
+                throw new Exception($"O arquivo '{nomeCampo}' excede o limite de 5MB.");
+            if (!tiposPermitidos.Contains(arquivo.ContentType))
+                throw new Exception($"O arquivo '{nomeCampo}' precisa ser PDF, JPG ou PNG.");
+        }
+
+        var resposta = new EnviarDocumentosRespostaDTO();
+
+        // Validação de tamanho/tipo e o "já enviado" são POR CAMPO, dentro do
+        // try/catch de cada arquivo — um arquivo inválido/já enviado não pode
+        // impedir o outro (válido) de ser processado e salvo.
+        if (dto.Diploma != null)
+        {
+            try
+            {
+                ValidarArquivo(dto.Diploma, "diploma");
+                if (usuario.DadosAcademico.LinkDiplomaLedor != null)
+                    throw new Exception("O diploma já foi enviado para este cadastro.");
+
+                usuario.DadosAcademico.LinkDiplomaLedor = await UploadArquivoAsync(dto.Diploma);
+                resposta.DiplomaEnviado = true;
+            }
+            catch (Exception ex)
+            {
+                resposta.ErroDiploma = ex.Message;
+            }
+        }
+
+        if (dto.NadaConsta != null)
+        {
+            try
+            {
+                ValidarArquivo(dto.NadaConsta, "nada consta");
+                if (usuario.DadosAcademico.LinkNadaConsta != null)
+                    throw new Exception("O nada consta já foi enviado para este cadastro.");
+
+                usuario.DadosAcademico.LinkNadaConsta = await UploadArquivoAsync(dto.NadaConsta);
+                resposta.NadaConstaEnviado = true;
+            }
+            catch (Exception ex)
+            {
+                resposta.ErroNadaConsta = ex.Message;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        return resposta;
+    }
+
+    private async Task<string> UploadArquivoAsync(IFormFile arquivo)
+    {
+        await using var stream = arquivo.OpenReadStream();
+        var fileDescription = new FileDescription(arquivo.FileName, stream);
+
+        UploadResult uploadResult = arquivo.ContentType == "application/pdf"
+            ? await _cloudinary.UploadAsync(new RawUploadParams { File = fileDescription })
+            : await _cloudinary.UploadAsync(new ImageUploadParams { File = fileDescription });
+
+        if (uploadResult.Error != null)
+            throw new Exception(uploadResult.Error.Message);
+
+        return uploadResult.SecureUrl.ToString();
     }
 }

@@ -45,6 +45,20 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("cadastro/{idUsuario}/documentos")]
+    public async Task<IActionResult> EnviarDocumentos(int idUsuario, [FromForm] EnviarDocumentosDTO dto)
+    {
+        try
+        {
+            var resultado = await _authService.EnviarDocumentosAsync(idUsuario, dto);
+            return Ok(resultado);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { mensagem = ex.Message });
+        }
+    }
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDTO dto)
     {
