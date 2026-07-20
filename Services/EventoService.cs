@@ -164,21 +164,10 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
 
     // ─── Métodos privados ────────────────────────────────────────────────────
 
-    // ─── NEUTRALIZAÇÃO DO FUSO HORÁRIO DA RAILWAY ───────────────────
-    // Identifica o fuso correto do Brasil (compatível com Windows local e Linux da Railway)
-    // e converte um horário de Brasília (sem fuso) para UTC antes de gravar no banco.
-    // Usado por CriarEventoAsync e AtualizarEventoAsync para que ambos gravem
-    // exatamente o mesmo offset.
+    // Delega para FusoHorarioHelper (compartilhado com NotaFiscalService) — não duplicar.
     private DateTime ConverterHorarioBrasiliaParaUtc(DateTime horarioBrasilia)
     {
-        var fusoBrasil = TimeZoneInfo.FindSystemTimeZoneById(
-            Environment.OSVersion.Platform == PlatformID.Unix ? "America/Sao_Paulo" : "E. South America Standard Time");
-
-        // Desvincula o horário vindo do formulário de qualquer fuso implícito
-        var horarioSemFuso = DateTime.SpecifyKind(horarioBrasilia, DateTimeKind.Unspecified);
-
-        // Converte para UTC considerando que a origem é o fuso de Brasília
-        return TimeZoneInfo.ConvertTimeToUtc(horarioSemFuso, fusoBrasil);
+        return FusoHorarioHelper.BrasiliaParaUtc(horarioBrasilia);
     }
 
     private int ContarVagasOcupadas(EventosProva evento, string papel)
