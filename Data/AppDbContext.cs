@@ -27,6 +27,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Perfi> Perfis { get; set; }
 
+    public virtual DbSet<SenhaResetToken> SenhaResetTokens { get; set; }
+
     public virtual DbSet<Usuario> Usuarios { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -103,6 +105,17 @@ public partial class AppDbContext : DbContext
         modelBuilder.Entity<Perfi>(entity =>
         {
             entity.HasKey(e => e.IdPerfil).HasName("perfis_pkey");
+        });
+
+        modelBuilder.Entity<SenhaResetToken>(entity =>
+        {
+            entity.HasKey(e => e.IdToken).HasName("senha_reset_tokens_pkey");
+
+            entity.Property(e => e.CriadoEm).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(d => d.IdUsuarioNavigation).WithMany()
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("senha_reset_tokens_id_usuario_fkey");
         });
 
         modelBuilder.Entity<Usuario>(entity =>

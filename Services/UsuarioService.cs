@@ -239,6 +239,14 @@ public async Task DeletarUsuarioAsync(int idUsuario)
         _context.Ocorrencias.RemoveRange(ocorrencias);
     }
 
+    // 4.5. Procura e remove tokens de reset de senha do utilizador (mesma FK
+    // sem CASCADE já documentada nos blocos acima — evita repetir o mesmo bug).
+    var tokensReset = await _context.SenhaResetTokens.Where(t => t.IdUsuario == idUsuario).ToListAsync();
+    if (tokensReset.Any())
+    {
+        _context.SenhaResetTokens.RemoveRange(tokensReset);
+    }
+
     // 5. Agora que os "filhos" foram limpos, procuramos o utilizador ("pai")
     var usuario = await _context.Usuarios.FindAsync(idUsuario);
     if (usuario == null)

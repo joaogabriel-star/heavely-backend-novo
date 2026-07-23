@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using CloudinaryDotNet;
+using SendGrid;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
@@ -35,6 +36,10 @@ var cloudinaryAccount = new Account(
     builder.Configuration["Cloudinary:ApiSecret"]
 );
 builder.Services.AddSingleton(new Cloudinary(cloudinaryAccount));
+
+// 2.6. SendGrid (email de recuperação de senha)
+builder.Services.AddSingleton<ISendGridClient>(
+    new SendGridClient(builder.Configuration["SendGrid:ApiKey"]));
 
 // 3. CORS — restrito às origens listadas em CORS_ORIGIN (fail-closed se não setada em produção)
 var corsOrigins = (builder.Configuration["CORS_ORIGIN"] ?? "")

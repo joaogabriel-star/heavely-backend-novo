@@ -11,6 +11,9 @@ using System.Text;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
+using SendGrid;
+using SendGrid.Helpers.Mail;
+using System.Security.Cryptography;
 
 
 public class AuthService : IAuthService
@@ -18,12 +21,14 @@ public class AuthService : IAuthService
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly Cloudinary _cloudinary;
+    private readonly ISendGridClient _sendGridClient;
 
-    public AuthService(AppDbContext context, IConfiguration configuration, Cloudinary cloudinary)
+    public AuthService(AppDbContext context, IConfiguration configuration, Cloudinary cloudinary, ISendGridClient sendGridClient)
     {
         _context = context;
         _configuration = configuration;
         _cloudinary = cloudinary;
+        _sendGridClient = sendGridClient;
     }
 
     public async Task<AuthRespostaDTO> CadastrarLedorFiscalAsync(CadastroLedorFiscalDTO dto)
@@ -281,6 +286,107 @@ public class AuthService : IAuthService
         await _context.SaveChangesAsync();
 
         return resposta;
+    }
+
+    // ── ESQUECI MINHA SENHA ─────────────────────────────────────────────────
+    public async Task EsqueciSenhaAsync(EsqueciSenhaDTO dto)
+    {
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == dto.Email);
+
+        // Se o email não existir, não faz nada — quem chama (Controller) sempre
+        // devolve a mesma mensagem genérica, então isso não é observável de fora.
+        if (usuario == null)
+            return;
+
+        // Invalida qualquer token anterior ainda não usado — só o link mais
+        // recente deve continuar funcionando.
+        var tokensAnteriores = await _context.SenhaResetTokens
+            .Where(t => t.IdUsuario == usuario.IdUsuario && t.UsadoEm == null)
+            .ToListAsync();
+        foreach (var antigo in tokensAnteriores)
+            antigo.UsadoEm = DateTime.UtcNow;
+
+        var tokenCru = GerarTokenAleatorio();
+
+        _context.SenhaResetTokens.Add(new SenhaResetToken
+        {
+            IdUsuario = usuario.IdUsuario,
+            TokenHash = CalcularHashToken(tokenCru),
+            ExpiraEm = DateTime.UtcNow.AddHours(1),
+            CriadoEm = DateTime.UtcNow,
+        });
+        await _context.SaveChangesAsync();
+
+        // O token em texto puro só existe aqui e no link do email — nunca é salvo.
+        await EnviarEmailResetAsync(usuario, tokenCru);
+    }
+
+    public async Task<ValidarTokenResetRespostaDTO> ValidarTokenResetAsync(string token)
+    {
+        var tokenHash = CalcularHashToken(token);
+        var registro = await _context.SenhaResetTokens
+            .FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
+
+        var valido = registro != null
+            && registro.UsadoEm == null
+            && registro.ExpiraEm > DateTime.UtcNow;
+
+        return new ValidarTokenResetRespostaDTO { Valido = valido };
+    }
+
+    public async Task RedefinirSenhaAsync(RedefinirSenhaDTO dto)
+    {
+        // Revalida tudo de novo no servidor — a checagem da tela (ValidarTokenResetAsync)
+        // é só UX, essa aqui é a que realmente decide se a senha troca.
+        var tokenHash = CalcularHashToken(dto.Token);
+        var registro = await _context.SenhaResetTokens
+            .Include(t => t.IdUsuarioNavigation)
+            .FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
+
+        if (registro == null || registro.UsadoEm != null || registro.ExpiraEm <= DateTime.UtcNow)
+            throw new Exception("Link inválido ou expirado. Solicite um novo.");
+
+        registro.IdUsuarioNavigation.SenhaHash = BCrypt.Net.BCrypt.HashPassword(dto.NovaSenha);
+        registro.UsadoEm = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+    }
+
+    private static string GerarTokenAleatorio() =>
+        Convert.ToHexString(RandomNumberGenerator.GetBytes(32)); // 64 chars hex — só [0-9A-F], seguro em URL
+
+    private static string CalcularHashToken(string tokenCru) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(tokenCru)));
+
+    private async Task EnviarEmailResetAsync(Usuario usuario, string tokenCru)
+    {
+        var frontendUrl = _configuration["App:FrontendUrl"]
+            ?? throw new InvalidOperationException("Configuração 'App:FrontendUrl' não foi definida.");
+        var fromEmail = _configuration["SendGrid:FromEmail"]
+            ?? throw new InvalidOperationException("Configuração 'SendGrid:FromEmail' não foi definida.");
+        var fromName = _configuration["SendGrid:FromName"] ?? "Heavely";
+
+        var link = $"{frontendUrl.TrimEnd('/')}/redefinir-senha/{tokenCru}";
+
+        var from = new EmailAddress(fromEmail, fromName);
+        var to = new EmailAddress(usuario.Email, usuario.NomeCompleto);
+        var mensagem = MailHelper.CreateSingleEmail(
+            from, to,
+            "Recuperação de senha — Heavely",
+            $"Recebemos um pedido de redefinição de senha para sua conta Heavely.\n\n" +
+            $"Acesse o link abaixo pra definir uma nova senha (válido por 1 hora):\n{link}\n\n" +
+            $"Se você não pediu isso, pode ignorar este email.",
+            $"<p>Recebemos um pedido de redefinição de senha para sua conta Heavely.</p>" +
+            $"<p><a href=\"{link}\">Clique aqui para definir uma nova senha</a> (link válido por 1 hora).</p>" +
+            $"<p>Se você não pediu isso, pode ignorar este email.</p>"
+        );
+
+        var resposta = await _sendGridClient.SendEmailAsync(mensagem);
+        if ((int)resposta.StatusCode >= 400)
+        {
+            var corpo = await resposta.Body.ReadAsStringAsync();
+            throw new Exception($"Falha ao enviar email de recuperação (SendGrid {resposta.StatusCode}): {corpo}");
+        }
     }
 
     private async Task<string> UploadArquivoAsync(IFormFile arquivo)
