@@ -214,6 +214,7 @@ public async Task<EventoRespostaDTO> AtualizarEventoAsync(int idEvento, Atualiza
         IdEvento = e.IdEvento,
         TituloProva = e.TituloProva, // Use apenas o que existe no modelo
         DataProva = e.DataProva,
+        HorarioFim = e.HorarioFim,
         VagasLedor = e.VagasLedor,
         VagasFiscal = e.VagasFiscal,
         StatusEvento = e.StatusEvento ?? "ATIVO",
