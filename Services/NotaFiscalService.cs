@@ -146,6 +146,12 @@ public class NotaFiscalService : INotaFiscalService
                                 $"{pessoa.NomeCompleto} — CPF {FormatarCpf(pessoa.Cpf)}")
                                 .FontSize(10).SemiBold();
 
+                            var dadosPagamento = string.IsNullOrWhiteSpace(pessoa.ChavePix)
+                                ? "PIX: — não cadastrado —"
+                                : $"PIX: {pessoa.ChavePix} ({(string.IsNullOrWhiteSpace(pessoa.BancoNome) ? "banco não informado" : pessoa.BancoNome)})";
+                            col.Item().PaddingTop(1).Text(dadosPagamento)
+                                .FontSize(8).FontColor(Colors.Grey.Darken1);
+
                             col.Item().PaddingTop(3).Table(tabela =>
                             {
                                 tabela.ColumnsDefinition(cols =>
@@ -297,6 +303,8 @@ public class NotaFiscalService : INotaFiscalService
             IdUsuario = grupo.Key,
             NomeCompleto = pessoa.NomeCompleto,
             Cpf = pessoa.Cpf,
+            ChavePix = pessoa.ChavePix,
+            BancoNome = pessoa.BancoNome,
             Dias = dias,
             TotalHoras = dias.Sum(d => d.HorasTrabalhadas ?? 0),
             TotalValor = dias.Sum(d => d.ValorDia)

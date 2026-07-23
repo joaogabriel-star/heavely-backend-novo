@@ -30,6 +30,8 @@ public class PessoaNotaFiscalDTO
     public int IdUsuario { get; set; }
     public string NomeCompleto { get; set; } = string.Empty;
     public string Cpf { get; set; } = string.Empty;
+    public string? ChavePix { get; set; }
+    public string? BancoNome { get; set; }
 
     public List<DiaTrabalhadoDTO> Dias { get; set; } = new();
 

@@ -53,6 +53,8 @@ public class RelatorioService : IRelatorioService
                 Cpf = a.IdUsuarioNavigation.Cpf,
                 Email = a.IdUsuarioNavigation.Email,
                 Celular = a.IdUsuarioNavigation.Celular,
+                ChavePix = a.IdUsuarioNavigation.ChavePix,
+                BancoNome = a.IdUsuarioNavigation.BancoNome,
                 PapelEvento = a.PapelEvento,
                 StatusParticipacao = a.StatusParticipacao,
                 CheckInTime = a.CheckInTime,
@@ -212,6 +214,51 @@ public class RelatorioService : IRelatorioService
                                 .Padding(4).Text($"R$ {totalGrupo:F2}").Bold().AlignRight();
                         });
                     }
+
+                    // ── Dados para Pagamento ───────────────────────────────────
+                    // Tabela separada da presença/horas de propósito: Chave PIX
+                    // (formato de chave aleatória tem ~36 caracteres) não cabe
+                    // numa coluna estreita ao lado de Check-in/Check-out sem
+                    // quebrar linha feio. Nome/PIX/Banco têm colunas largas só
+                    // pra isso.
+                    col.Item().PaddingTop(14).Text("DADOS PARA PAGAMENTO")
+                        .FontSize(11).Bold();
+
+                    col.Item().PaddingTop(4).Table(tabelaPagamento =>
+                    {
+                        tabelaPagamento.ColumnsDefinition(cols =>
+                        {
+                            cols.RelativeColumn(3); // Nome
+                            cols.RelativeColumn(4); // Chave PIX
+                            cols.RelativeColumn(3); // Banco
+                        });
+
+                        tabelaPagamento.Header(header =>
+                        {
+                            var headerStyle = TextStyle.Default.FontSize(8).Bold();
+                            header.Cell().Background("#2C3E50")
+                                .Padding(5).Text("Nome").Style(headerStyle).FontColor(Colors.White);
+                            header.Cell().Background("#2C3E50")
+                                .Padding(5).Text("Chave PIX").Style(headerStyle).FontColor(Colors.White);
+                            header.Cell().Background("#2C3E50")
+                                .Padding(5).Text("Banco").Style(headerStyle).FontColor(Colors.White);
+                        });
+
+                        var todosParticipantes = dados.Participantes
+                            .OrderBy(p => p.PapelEvento).ThenBy(p => p.NomeCompleto).ToList();
+
+                        for (int i = 0; i < todosParticipantes.Count; i++)
+                        {
+                            var item = todosParticipantes[i];
+                            var bg = i % 2 == 0 ? "#F8F9FA" : "#FFFFFF";
+
+                            tabelaPagamento.Cell().Background(bg).Padding(4).Text(item.NomeCompleto);
+                            tabelaPagamento.Cell().Background(bg).Padding(4)
+                                .Text(string.IsNullOrWhiteSpace(item.ChavePix) ? "— não cadastrado —" : item.ChavePix);
+                            tabelaPagamento.Cell().Background(bg).Padding(4)
+                                .Text(string.IsNullOrWhiteSpace(item.BancoNome) ? "— não cadastrado —" : item.BancoNome);
+                        }
+                    });
 
                     // ── Totalizador geral ─────────────────────────────────────
                     col.Item().PaddingTop(16).Table(tabela =>
