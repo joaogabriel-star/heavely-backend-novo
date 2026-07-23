@@ -22,8 +22,11 @@ public class NotaFiscalService : INotaFiscalService
 
     public async Task<NotaFiscalRespostaDTO> GerarDadosNotaFiscalAsync(NotaFiscalFiltroDTO filtro)
     {
-        var inicioUtc = FusoHorarioHelper.BrasiliaParaUtc(filtro.DataInicio.Date);
-        var fimUtcExclusivo = FusoHorarioHelper.BrasiliaParaUtc(filtro.DataFim.Date.AddDays(1));
+        if (!filtro.DataInicio.HasValue || !filtro.DataFim.HasValue)
+            throw new Exception("Data de início e fim são obrigatórias.");
+
+        var inicioUtc = FusoHorarioHelper.BrasiliaParaUtc(filtro.DataInicio.Value.Date);
+        var fimUtcExclusivo = FusoHorarioHelper.BrasiliaParaUtc(filtro.DataFim.Value.Date.AddDays(1));
 
         if (fimUtcExclusivo <= inicioUtc)
             throw new Exception("Data de fim deve ser posterior à data de início.");
@@ -64,8 +67,8 @@ public class NotaFiscalService : INotaFiscalService
 
         return new NotaFiscalRespostaDTO
         {
-            PeriodoInicio = filtro.DataInicio.Date,
-            PeriodoFim = filtro.DataFim.Date,
+            PeriodoInicio = filtro.DataInicio.Value.Date,
+            PeriodoFim = filtro.DataFim.Value.Date,
             Segmentos = segmentos,
             EventosSemSerieClassificavel = eventosSemSerie,
             TotalGeralHoras = segmentos.Sum(s => s.TotalSegmentoHoras),

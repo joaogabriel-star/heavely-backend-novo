@@ -2,11 +2,14 @@ namespace SistemaHEAVELYBackend.DTOs.NotaFiscal;
 
 public class NotaFiscalFiltroDTO
 {
-    [Required(ErrorMessage = "Data de início é obrigatória")]
-    public DateTime DataInicio { get; set; }
+    // DateTime? (não DateTime) de propósito: [Required] não tem efeito nenhum
+    // sobre um DateTime não-anulável — o model binder sempre entrega um valor
+    // (0001-01-01 quando o parâmetro não vem na query string), então a
+    // validação nunca disparava. A checagem real está em
+    // NotaFiscalService.GerarDadosNotaFiscalAsync.
+    public DateTime? DataInicio { get; set; }
 
-    [Required(ErrorMessage = "Data de fim é obrigatória")]
-    public DateTime DataFim { get; set; }
+    public DateTime? DataFim { get; set; }
 
     // "EF2" ou "EM" — omitido/null = todos os segmentos (+ "Sem Série", se houver) no mesmo relatório
     public string? Segmento { get; set; }
