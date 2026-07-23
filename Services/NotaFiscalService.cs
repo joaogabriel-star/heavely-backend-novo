@@ -173,7 +173,9 @@ public class NotaFiscalService : INotaFiscalService
                                     tabela.Cell().Background(bg).Padding(4).Text(dia.Serie ?? "—");
                                     tabela.Cell().Background(bg).Padding(4).Text(dia.PapelEvento);
                                     tabela.Cell().Background(bg).Padding(4)
-                                        .Text(dia.HorasTrabalhadas.HasValue ? $"{dia.HorasTrabalhadas:F1}h" : "-");
+                                        .Text(dia.HorasTrabalhadas.HasValue
+                                            ? $"{dia.HorasTrabalhadas:F1}h"
+                                            : (dia.SaidaNaoRegistrada ? "0h (saída não registrada)" : "-"));
                                     tabela.Cell().Background(bg).Padding(4)
                                         .Text($"R$ {dia.ValorDia:F2}").AlignRight();
                                 }
@@ -279,7 +281,8 @@ public class NotaFiscalService : INotaFiscalService
                     Serie = a.IdEventoNavigation.Serie,
                     PapelEvento = a.PapelEvento,
                     HorasTrabalhadas = horas,
-                    ValorDia = Math.Round((decimal)(horas ?? 0) * ValorHoraNotaFiscal, 2)
+                    ValorDia = Math.Round((decimal)(horas ?? 0) * ValorHoraNotaFiscal, 2),
+                    SaidaNaoRegistrada = a.CheckInTime.HasValue && !a.CheckOutTime.HasValue
                 };
             })
             .ToList();

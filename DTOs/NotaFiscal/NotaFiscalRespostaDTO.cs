@@ -45,4 +45,8 @@ public class DiaTrabalhadoDTO
     public string PapelEvento { get; set; } = string.Empty;
     public double? HorasTrabalhadas { get; set; }
     public decimal ValorDia { get; set; }
+
+    // Fez check-in mas nunca teve check-out — Horas/Valor ficam zerados por
+    // esse motivo (não por erro de dados). Usado só pra anotar a linha do relatório.
+    public bool SaidaNaoRegistrada { get; set; }
 }
