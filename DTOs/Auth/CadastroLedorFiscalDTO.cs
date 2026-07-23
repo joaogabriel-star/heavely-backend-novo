@@ -36,6 +36,14 @@ public class CadastroLedorFiscalDTO
     [Required(ErrorMessage = "Informe se possui certificado de ledor")]
     public bool PossuiCertificadoLedor { get; set; }
 
+    // Sem validação de formato de propósito — PIX aceita CPF, email, telefone
+    // ou chave aleatória, um regex rígido geraria falso negativo.
+    [Required(ErrorMessage = "Chave PIX é obrigatória")]
+    public string ChavePix { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Banco é obrigatório")]
+    public string BancoNome { get; set; } = string.Empty;
+
     public string? EscolaridadeNivel { get; set; }
     public string? EscolaridadeStatus { get; set; }
     public string? InstituicaoEnsino { get; set; }

@@ -65,7 +65,9 @@ public class AuthService : IAuthService
             SenhaHash = senhaHash,
             Endereco = dto.Endereco,
             DataNascimento = DateOnly.FromDateTime(dto.DataNascimento),
-            StatusConta = "pendente", 
+            ChavePix = dto.ChavePix,
+            BancoNome = dto.BancoNome,
+            StatusConta = "pendente",
             CreatedAt = DateTime.Now
         };
 
