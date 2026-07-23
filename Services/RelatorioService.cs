@@ -273,11 +273,13 @@ public class RelatorioService : IRelatorioService
 
     private decimal CalcularValor(ConfiguracaoRelatorioDTO config, double? horas)
     {
+        // Sem checkout (horas vem null) não paga em nenhum dos dois modos —
+        // mesma regra que a Nota Fiscal já aplica pra "saída não registrada".
+        if (!horas.HasValue) return 0;
+
         if (config.TipoPagamento == "ValorFixo")
             return config.ValorFixo;
 
-        // PorHora — se não tem horas registradas, valor é zero
-        if (!horas.HasValue) return 0;
         return Math.Round((decimal)horas.Value * config.ValorPorHora, 2);
     }
 
